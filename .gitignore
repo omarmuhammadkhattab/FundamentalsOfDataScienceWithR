@@ -1,0 +1,12 @@
+# Only the website is published. Everything else in this course folder
+# (lecture videos, R scripts, datasets, assignments) stays on this computer.
+/*
+!/.gitignore
+!/README.md
+!/index.html
+!/lecture1.html
+!/lecture2.html
+!/lecture3.html
+!/lecture4.html
+!/reference.html
+!/assets/

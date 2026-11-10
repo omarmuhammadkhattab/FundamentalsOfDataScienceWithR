@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cheat Sheet — DS550</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@500;700&family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/site.js"></script>
+<style>
+  #fn-table td:first-child{white-space:nowrap}
+  .grp td{background:var(--card2);font-family:var(--f-mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--red);font-weight:700}
+  @media print{.topnav,.toc,.r-fab,.r-drawer,.read-progress,footer.site,#fn-search,.lec-nav{display:none!important}.page{display:block}body{background:#fff}}
+</style>
+</head>
+<body data-page="ref">
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="big-num">✎</div>
+    <div>
+      <div class="kicker">Revision sheet · lectures 1–4</div>
+      <h1>Everything on <em>one page</em></h1>
+      <p class="lead">Every R function used in the course, every formula, every hypothesis test with its decision rule, and templates for writing interpretations. Search the function table, or print the page (Ctrl + P) for a paper copy.</p>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+<aside class="toc"></aside>
+<main class="content">
+
+<section class="section" id="s-fn">
+  <div class="sec-head"><span class="sec-num">R.1</span><h2>R functions</h2></div>
+  <div class="controls"><input class="txt" id="fn-search" placeholder="search, e.g. na, matrix, test…" style="width:100%;max-width:360px" aria-label="Search functions"></div>
+  <div class="table-wrap"><table class="t" id="fn-table">
+    <tr><th>Code</th><th>What it does</th><th>Lec</th></tr>
+    <tr class="grp"><td colspan="3">basics &amp; vectors</td></tr>
+    <tr><td class="mono">x &lt;- c(1, 3, 4)</td><td>assign; combine values into a vector</td><td>1</td></tr>
+    <tr><td class="mono">11:100</td><td>sequence from 11 to 100</td><td>1</td></tr>
+    <tr><td class="mono">class(x) · length(x) · dim(x)</td><td>type · number of elements · dimensions (NULL for vectors)</td><td>1</td></tr>
+    <tr><td class="mono">mean(x, na.rm = TRUE)</td><td>mean, ignoring NA values</td><td>1</td></tr>
+    <tr><td class="mono">sum() · sd() · min() · max()</td><td>total · standard deviation · smallest · largest</td><td>1–2</td></tr>
+    <tr><td class="mono">ls() · rm(x) · rm(list = ls())</td><td>list objects · remove one · remove all</td><td>1</td></tr>
+    <tr><td class="mono">v[2] · v[c(1,5)] · v[-3] · v[v &gt; 12]</td><td>index: take · take several · drop · keep where TRUE</td><td>1</td></tr>
+    <tr><td class="mono">is.na(x) · anyNA(x)</td><td>which values are NA · is there any NA?</td><td>4</td></tr>
+    <tr><td class="mono">set.seed(123)</td><td>make random results reproducible</td><td>4</td></tr>
+    <tr class="grp"><td colspan="3">matrices</td></tr>
+    <tr><td class="mono">matrix(1:6, nrow = 2, ncol = 3, byrow = TRUE)</td><td>build a matrix (default fills by column)</td><td>1</td></tr>
+    <tr><td class="mono">dimnames = list(r, c) · colnames() · rownames()</td><td>name rows and columns</td><td>1</td></tr>
+    <tr><td class="mono">M[1,2] · M[2,] · M[,2]</td><td>element · row · column</td><td>1</td></tr>
+    <tr><td class="mono">A * B · A %*% B</td><td>element-wise product · matrix product</td><td>1</td></tr>
+    <tr><td class="mono">t(A) · solve(A) · det(A) · diag(A)</td><td>transpose · inverse · determinant · diagonal</td><td>1</td></tr>
+    <tr><td class="mono">rowSums · colSums · rowMeans · colMeans</td><td>sums / means per row or column</td><td>1</td></tr>
+    <tr><td class="mono">rbind(A, B) · cbind(A, B)</td><td>stack rows · glue columns</td><td>1</td></tr>
+    <tr><td class="mono">nrow(A) · ncol(A)</td><td>number of rows / columns</td><td>1</td></tr>
+    <tr class="grp"><td colspan="3">data frames</td></tr>
+    <tr><td class="mono">read.csv("file.csv")</td><td>read a comma-separated file with header</td><td>2</td></tr>
+    <tr><td class="mono">head(d, 4) · names(d) · summary(d) · dim(d)</td><td>first rows · column names · summary stats · size</td><td>2</td></tr>
+    <tr><td class="mono">d$age · d[, 1:7] · d[-c(33,127), ]</td><td>one column · columns 1–7 · drop rows</td><td>2</td></tr>
+    <tr><td class="mono">attach(d)</td><td>use column names directly (risky; prefer d$col)</td><td>2</td></tr>
+    <tr><td class="mono">write.csv(x, "file.csv")</td><td>save to CSV</td><td>2</td></tr>
+    <tr><td class="mono">cbind.data.frame(a, b, c)</td><td>combine vectors into a data frame</td><td>4</td></tr>
+    <tr class="grp"><td colspan="3">plots</td></tr>
+    <tr><td class="mono">plot(x, y, pch = 19, main = , xlab = , ylab = )</td><td>scatter plot</td><td>2–3</td></tr>
+    <tr><td class="mono">abline(model) · abline(0, 0) · grid()</td><td>add fitted line · horizontal zero line · grid</td><td>2–3</td></tr>
+    <tr><td class="mono">hist(x) · boxplot(x)</td><td>histogram · boxplot</td><td>2</td></tr>
+    <tr><td class="mono">qqnorm(e); qqline(e)</td><td>normal Q-Q plot with reference line</td><td>2</td></tr>
+    <tr><td class="mono">par(mfrow = c(2, 2))</td><td>2×2 grid of plots</td><td>3</td></tr>
+    <tr><td class="mono">barplot(m, beside = TRUE, legend.text = )</td><td>grouped bar chart</td><td>4</td></tr>
+    <tr><td class="mono">chart.Correlation(d)</td><td>PerformanceAnalytics: matrix of scatters, histograms, r</td><td>2</td></tr>
+    <tr class="grp"><td colspan="3">correlation &amp; tests</td></tr>
+    <tr><td class="mono">cor(x, y) · cor(d) · cor(d, method = "spearman")</td><td>Pearson r · correlation matrix · rank correlation</td><td>2–3</td></tr>
+    <tr><td class="mono">cor.test(x, y)</td><td>t-test of H₀: ρ = 0, with p-value and 95% CI</td><td>3</td></tr>
+    <tr><td class="mono">shapiro.test(e)</td><td>Shapiro–Wilk test of H₀: normal</td><td>2</td></tr>
+    <tr><td class="mono">qt(0.975, df) · pt(t, df)</td><td>t critical value · t probability</td><td>3</td></tr>
+    <tr class="grp"><td colspan="3">regression</td></tr>
+    <tr><td class="mono">lm(y ~ x, data = d)</td><td>simple linear regression</td><td>3</td></tr>
+    <tr><td class="mono">lm(y ~ ., data = d) · lm(y ~ . - 1, d)</td><td>all other columns as predictors · without intercept</td><td>2</td></tr>
+    <tr><td class="mono">summary(fit)</td><td>coefficients, SEs, t, p, R², F</td><td>2–3</td></tr>
+    <tr><td class="mono">coef(fit) · fit$fitted · fit$residuals</td><td>estimates · fitted values · residuals</td><td>2</td></tr>
+    <tr><td class="mono">anova(fit1, fit2) · anova(fit)</td><td>F-test for nested models · ANOVA table</td><td>2–3</td></tr>
+    <tr><td class="mono">plot(fit)</td><td>4 diagnostic plots</td><td>3</td></tr>
+    <tr><td class="mono">predict(fit, newdata = , interval = "confidence" | "prediction")</td><td>predictions with CI (mean) or PI (single case)</td><td>3</td></tr>
+    <tr><td class="mono">AIC(m1, m2) · BIC(m1, m2)</td><td>information criteria (lower = better)</td><td>4</td></tr>
+    <tr class="grp"><td colspan="3">missing data</td></tr>
+    <tr><td class="mono">md.pattern(d)</td><td>mice: table/plot of missing-value patterns</td><td>4</td></tr>
+    <tr><td class="mono">impute(x, mean)</td><td>Hmisc: replace NA with the mean</td><td>4</td></tr>
+    <tr><td class="mono">mice(d, m = 10, method = "pmm" | "cart" | "rf" | "norm")</td><td>multiple imputation by chained equations</td><td>4</td></tr>
+    <tr><td class="mono">complete(imp)</td><td>first completed dataset</td><td>4</td></tr>
+    <tr><td class="mono">pool(with(imp, lm(y ~ x)))</td><td>analyse all m datasets and combine (Rubin's rules)</td><td>4</td></tr>
+    <tr><td class="mono">install.packages("pkg") · library(pkg)</td><td>install once · load each session</td><td>2</td></tr>
+  </table></div>
+</section>
+
+<section class="section" id="s-formulas">
+  <div class="sec-head"><span class="sec-num">R.2</span><h2>Formulas</h2></div>
+  <div class="grid2">
+    <div class="formula">$$ r=\frac{\sum (x_i-\bar x)(y_i-\bar y)}{\sqrt{\sum (x_i-\bar x)^2\sum (y_i-\bar y)^2}} $$<span class="f-cap">Pearson correlation</span></div>
+    <div class="formula">$$ t=\frac{r\sqrt{n-2}}{\sqrt{1-r^2}},\quad df=n-2 $$<span class="f-cap">test of H₀: ρ = 0</span></div>
+    <div class="formula">$$ \hat\beta_1=\frac{S_{xy}}{S_{xx}}=r\frac{s_y}{s_x} $$<span class="f-cap">OLS slope</span></div>
+    <div class="formula">$$ \hat\beta_0=\bar y-\hat\beta_1\bar x $$<span class="f-cap">OLS intercept</span></div>
+    <div class="formula">$$ \hat{\boldsymbol\beta}=(X^\top X)^{-1}X^\top y $$<span class="f-cap">OLS in matrix form (any number of predictors)</span></div>
+    <div class="formula">$$ t_j=\frac{\hat\beta_j}{SE(\hat\beta_j)} $$<span class="f-cap">coefficient t-test, df = n − p − 1</span></div>
+    <div class="formula">$$ TSS=ESS+RSS,\quad R^2=1-\frac{RSS}{TSS} $$<span class="f-cap">variation decomposition</span></div>
+    <div class="formula">$$ \bar R^2=1-(1-R^2)\frac{n-1}{n-p-1} $$<span class="f-cap">adjusted R² (p = number of predictors)</span></div>
+    <div class="formula">$$ s=\sqrt{\frac{RSS}{n-p-1}} $$<span class="f-cap">residual standard error</span></div>
+    <div class="formula">$$ F=\frac{(RSS_r-RSS_f)/q}{RSS_f/(n-p-1)} $$<span class="f-cap">nested models: restricted vs full, q dropped terms</span></div>
+    <div class="formula">$$ \hat y_0\pm t\,s\sqrt{\tfrac1n+\tfrac{(x_0-\bar x)^2}{S_{xx}}} $$<span class="f-cap">confidence interval for the mean</span></div>
+    <div class="formula">$$ \hat y_0\pm t\,s\sqrt{1+\tfrac1n+\tfrac{(x_0-\bar x)^2}{S_{xx}}} $$<span class="f-cap">prediction interval for one case</span></div>
+    <div class="formula">$$ AIC=2k-2\ln L,\quad BIC=k\ln n-2\ln L $$<span class="f-cap">lower is better</span></div>
+    <div class="formula">$$ \text{simple regression: } R^2=r^2,\;F=t^2 $$<span class="f-cap">handy checks</span></div>
+  </div>
+</section>
+
+<section class="section" id="s-tests">
+  <div class="sec-head"><span class="sec-num">R.3</span><h2>Hypothesis tests at a glance</h2></div>
+  <p>One rule for all of them: <strong>p-value &lt; α (0.05) → reject H₀.</strong></p>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Test</th><th>H₀</th><th>Where in R</th><th>If p &lt; 0.05…</th></tr>
+    <tr><td>correlation t-test</td><td>ρ = 0</td><td class="mono">cor.test(x, y)</td><td>the correlation is significant</td></tr>
+    <tr><td>coefficient t-test</td><td>βⱼ = 0</td><td class="mono">summary(fit) → Pr(&gt;|t|)</td><td>Xⱼ matters, given the other predictors</td></tr>
+    <tr><td>overall F-test</td><td>all slopes = 0</td><td class="mono">summary(fit) → last line</td><td>the model explains something</td></tr>
+    <tr><td>nested-model F-test</td><td>the smaller model is as good</td><td class="mono">anova(small, big)</td><td>the extra terms are needed → keep the bigger model</td></tr>
+    <tr><td>Shapiro–Wilk</td><td>residuals are normal</td><td class="mono">shapiro.test(fit$resid)</td><td>residuals are <em>not</em> normal</td></tr>
+  </table></div>
+  <div class="callout trap"><div class="c-title">Classic traps</div><ul>
+    <li>A large p-value does <strong>not</strong> prove H₀ — it only means "not enough evidence against it".</li>
+    <li>Significant ≠ important. With huge n, tiny effects get ***.</li>
+    <li>R² without an intercept is not comparable with R² with one.</li>
+    <li>Correlation ≠ causation.</li>
+  </ul></div>
+</section>
+
+<section class="section" id="s-interp">
+  <div class="sec-head"><span class="sec-num">R.4</span><h2>Interpretation templates</h2></div>
+  <div class="grid2">
+    <div class="card blue"><span class="tag">correlation</span><p>"There is a <em>[strong/moderate/weak] [positive/negative]</em> linear relationship between X and Y (r = __). It is <em>[significant/not significant]</em> at 5% (t(__) = __, p = __)."</p></div>
+    <div class="card blue"><span class="tag">slope</span><p>"For each one-unit increase in X, Y is expected to change by β̂ units<em>, holding the other predictors constant</em>."</p></div>
+    <div class="card blue"><span class="tag">intercept</span><p>"The expected Y when all predictors are 0" — and say whether X = 0 makes sense in the data.</p></div>
+    <div class="card blue"><span class="tag">R²</span><p>"__% of the variation in Y is explained by the model; the rest is due to factors not included."</p></div>
+    <div class="card blue"><span class="tag">residual SE</span><p>"Predictions are typically off by about __ units of Y."</p></div>
+    <div class="card blue"><span class="tag">intervals</span><p>"We are 95% confident that the <em>mean</em> Y for X = x₀ lies in [CI]; a <em>single new</em> observation will lie in [PI]."</p></div>
+  </div>
+</section>
+
+<section class="section" id="s-check">
+  <div class="sec-head"><span class="sec-num">R.5</span><h2>Regression workflow checklist</h2></div>
+  <ol class="steps">
+    <li>Load data; check <code>dim</code>, <code>summary</code>, NAs (<code>md.pattern</code>).</li>
+    <li>Handle missing values (delete if few; otherwise <code>mice</code>, not mean imputation).</li>
+    <li>Plot Y against each X; compute the correlation matrix (Pearson and Spearman).</li>
+    <li>Fit <code>lm</code>; read signs, sizes, p-values, R², adjusted R², F.</li>
+    <li>Compare candidate models with <code>anova</code> (nested) or AIC/BIC.</li>
+    <li>Check residuals: vs fitted, Q-Q, histogram, <code>shapiro.test</code>, <code>plot(fit)</code>.</li>
+    <li>Only then interpret and predict — inside the range of the data.</li>
+  </ol>
+</section>
+
+<div id="lec-nav"></div>
+</main>
+</div>
+<script>
+document.addEventListener('ds:ready', () => {
+  const inp = document.getElementById('fn-search');
+  const rows = Array.from(document.querySelectorAll('#fn-table tr')).slice(1);
+  inp.addEventListener('input', () => {
+    const q = inp.value.trim().toLowerCase();
+    rows.forEach(r => { if (r.classList.contains('grp')) r.style.display = q ? 'none' : ''; else r.style.display = !q || r.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+  });
+});
+</script>
+</body>
+</html>

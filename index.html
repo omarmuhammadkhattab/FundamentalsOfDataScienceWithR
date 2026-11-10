@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DS550 — Fundamentals of Data Science with R</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@500;700&family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/site.js"></script>
+<script>
+window.R_SNIPPETS = [
+  { label: 'hello R', code: '2 + 3\nx <- c(1, 3, 4, 3)\nmean(x)' },
+  { label: 'a first regression', code: 'hours  <- c(2, 4, 6, 8, 10, 3, 5, 7, 9, 11)\nscores <- c(60, 70, 80, 85, 90, 65, 75, 82, 88, 92)\nsummary(lm(scores ~ hours))' }
+];
+</script>
+</head>
+<body data-page="home">
+
+<header class="home-hero">
+  <div>
+    <div class="badge">semester 2 · interactive study notes</div>
+    <h1>Fundamentals of Data Science <em>with R</em></h1>
+    <p>From typing <code>2 + 3</code> to fitting multiple regressions, testing them, checking their assumptions and rescuing them from missing data — every line of the DS550 scripts explained in plain language, with real R output and things you can play with.</p>
+    <div class="home-stats">
+      <div><div class="n">4</div><div class="l">lectures</div></div>
+      <div><div class="n">19</div><div class="l">interactive tools</div></div>
+      <div><div class="n">31</div><div class="l">quiz questions</div></div>
+    </div>
+  </div>
+  <div class="hero-plot" aria-label="Animation: a regression line fitting itself to points">
+    <svg id="hero-svg"></svg>
+    <div class="cap"><span>least squares, live</span><span>RSS <b id="hero-rss">—</b></span></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="sec-label"><h2>The lectures</h2><span class="hand">start at 01, or jump in</span></div>
+  <ul class="syllabus" id="syllabus">
+    <li><a class="syl" href="lecture1.html" style="--acc:var(--blue)" data-id="l1">
+      <span class="n">01</span>
+      <div><h3>R Basics: vectors, indexing &amp; matrices</h3>
+        <p>R as a calculator, variables, missing values (NA), picking elements with [ ], recycling, matrices, the matrix product %*%, inverse and determinant — and how they combine into the OLS formula.</p>
+        <div class="tags"><span>c()</span><span>NA · na.rm</span><span>v[-3]</span><span>matrix()</span><span>%*%</span><span>solve()</span></div></div>
+      <div class="side"></div></a></li>
+    <li><a class="syl" href="lecture2.html" style="--acc:var(--red)" data-id="l2">
+      <span class="n">02</span>
+      <div><h3>Regression modeling: what makes a house expensive?</h3>
+        <p>1,728 house sales: summary statistics, Pearson vs Spearman correlation matrices, a multiple regression with lm(), the no-intercept R² trap, comparing models with anova(), and residual analysis.</p>
+        <div class="tags"><span>read.csv</span><span>cor</span><span>chart.Correlation</span><span>lm(price ~ .)</span><span>anova</span><span>shapiro.test</span></div></div>
+      <div class="side"></div></a></li>
+    <li><a class="syl" href="lecture3.html" style="--acc:var(--green)" data-id="l3">
+      <span class="n">03</span>
+      <div><h3>Correlation &amp; simple linear regression (OLS)</h3>
+        <p>Computing r by hand, its limits, the t-test for r, the regression model, deriving least squares, Gauss–Markov assumptions, reading summary(lm) line by line, diagnostics, and confidence vs prediction intervals.</p>
+        <div class="tags"><span>r</span><span>cor.test</span><span>OLS</span><span>BLUE</span><span>R²</span><span>predict()</span></div></div>
+      <div class="side"></div></a></li>
+    <li><a class="syl" href="lecture4.html" style="--acc:var(--violet)" data-id="l4">
+      <span class="n">04</span>
+      <div><h3>Missing data in regression</h3>
+        <p>md.pattern, what listwise deletion costs, why mean imputation flattens slopes, multiple imputation with mice (PMM, CART, random forest, Bayesian), and judging methods with AIC and BIC.</p>
+        <div class="tags"><span>md.pattern</span><span>impute</span><span>mice</span><span>pmm</span><span>AIC · BIC</span><span>pool</span></div></div>
+      <div class="side"></div></a></li>
+    <li><a class="syl" href="reference.html" style="--acc:var(--ink)" data-id="ref">
+      <span class="n">✎</span>
+      <div><h3>Cheat sheet</h3>
+        <p>All R functions (searchable), all formulas, every hypothesis test with its decision rule, interpretation templates, and a regression checklist. Printable.</p></div>
+      <div class="side"></div></a></li>
+  </ul>
+
+  <div class="sec-label"><h2>How to use these notes</h2><span class="hand">tips</span></div>
+  <div class="how">
+    <div class="card blue"><span class="tag">read</span><h4>Plain words first</h4><p>Yellow sticky notes explain each idea without jargon. Then comes the precise version with formulas and R code.</p></div>
+    <div class="card teal"><span class="tag">run</span><h4>Real R in the page</h4><p>Press <span class="mono">▶ run</span> on any code box, or the blue <span class="mono">R&gt;</span> button, to run actual R in your browser (needs internet the first time; the course datasets are preloaded).</p></div>
+    <div class="card rose"><span class="tag">click</span><h4>Click the output</h4><p>Highlighted parts of R output (like <code>summary(lm)</code>) explain themselves when clicked.</p></div>
+    <div class="card violet"><span class="tag">test</span><h4>Check yourself</h4><p>Each lecture ends with a quiz with explanations. Your score is remembered here on this list.</p></div>
+  </div>
+
+  <div class="sec-label"><h2>The course in six formulas</h2></div>
+  <div class="formula-strip">
+    <div>\( r=\dfrac{S_{xy}}{\sqrt{S_{xx}S_{yy}}} \)<small>correlation</small></div>
+    <div>\( t=\dfrac{r\sqrt{n-2}}{\sqrt{1-r^2}} \)<small>is r significant?</small></div>
+    <div>\( \hat\beta=(X^\top X)^{-1}X^\top y \)<small>OLS</small></div>
+    <div>\( R^2=1-\dfrac{RSS}{TSS} \)<small>fit</small></div>
+    <div>\( F=\dfrac{\Delta RSS/q}{RSS/df} \)<small>compare models</small></div>
+    <div>\( AIC=2k-2\ln L \)<small>model choice</small></div>
+  </div>
+
+  <div class="callout note" style="margin-top:2.5rem"><div class="c-title">What these notes are built from</div><p>The R scripts in each lecture folder (<code>Lec 1.R</code>, <code>Lec 2 modeling.R</code>, <code>Lec 3___missing.R</code>), the two Lecture 3 handouts (Correlation Coefficient, Linear Regression and OLS), and the datasets. Every script was re-run in R 4.6, and the outputs and plots you see are from those runs. The lecture videos were not transcribed, so if the professor said something in class that isn't in the files, it won't be here.</p></div>
+</div>
+
+<script>
+document.addEventListener('ds:ready', () => {
+  // progress on the syllabus
+  const visited = DS_STORE.get('visited', {}), quiz = DS_STORE.get('quiz', {});
+  document.querySelectorAll('.syl').forEach(a => {
+    const id = a.dataset.id, side = a.querySelector('.side');
+    const q = quiz[id];
+    side.innerHTML = (visited[id] ? '<b>✓ opened</b><br>' : 'not opened yet<br>') + (q ? `quiz: <b>${q.right}/${q.total}</b><br>` : '') + '<span class="go">open →</span>';
+  });
+
+  // hero: a line that fits itself by gradient descent, then new data
+  const svg = document.getElementById('hero-svg'), rssEl = document.getElementById('hero-rss');
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let pts, b0, b1, frame = 0, ols;
+  function newData() {
+    const slope = 0.4 + Math.random() * 0.5, icpt = 1 + Math.random() * 2;
+    pts = Array.from({ length: 22 }, () => { const x = 0.5 + Math.random() * 9; return [x, icpt + slope * x + (Math.random() - 0.5) * 3]; });
+    ols = S.ols(pts.map(p => p[0]), pts.map(p => p[1]));
+    b0 = 9; b1 = -0.6; frame = 0;
+  }
+  function step() {
+    // gradient descent on the mean squared error
+    let g0 = 0, g1 = 0;
+    pts.forEach(([x, y]) => { const e = y - (b0 + b1 * x); g0 += -2 * e; g1 += -2 * e * x; });
+    b0 -= 0.012 * g0 / pts.length * 1.0; b1 -= 0.012 * g1 / pts.length;
+  }
+  function draw() {
+    const p = DS_PLOT(svg, { w: 460, h: 320, x: [0, 10], y: [0, 10], m: { l: 30, b: 28, t: 10, r: 10 } });
+    let rss = 0;
+    pts.forEach(([x, y]) => { const f = b0 + b1 * x; rss += (y - f) ** 2; p.el('line', { x1: p.X(x), x2: p.X(x), y1: p.Y(y), y2: p.Y(f), class: 'resid' }); });
+    p.el('line', { x1: p.X(0), y1: p.Y(b0), x2: p.X(10), y2: p.Y(b0 + b1 * 10), class: 'ln', style: 'stroke-width:2.6' });
+    pts.forEach(([x, y]) => p.el('circle', { cx: p.X(x), cy: p.Y(y), r: 4.5, class: 'pt' }));
+    rssEl.textContent = rss.toFixed(1) + (Math.abs(rss - ols.rss) < 0.05 ? '  ✓ minimum' : '');
+  }
+  newData();
+  if (reduce) { b0 = ols.b0; b1 = ols.b1; draw(); return; }
+  (function loop() {
+    for (let i = 0; i < 6; i++) step();
+    frame++; draw();
+    if (frame > 260) { setTimeout(() => { newData(); requestAnimationFrame(loop); }, 1600); return; }
+    requestAnimationFrame(loop);
+  })();
+});
+</script>
+</body>
+</html>

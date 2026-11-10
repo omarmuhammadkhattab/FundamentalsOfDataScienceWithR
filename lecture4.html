@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L4 · Missing Data — DS550</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@500;700&family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/data/missing.js"></script>
+<script src="assets/site.js"></script>
+<script>
+window.R_SNIPPETS = [
+  { label: 'look at data', code: 'mydata = read.csv("dataset with missing.csv")\nsummary(mydata)\ncolSums(is.na(mydata))\nsum(complete.cases(mydata))' },
+  { label: 'complete-case OLS', code: 'mydata = read.csv("dataset with missing.csv")\nols = lm(y ~ ., data = mydata)\nsummary(ols)' },
+  { label: 'mean imputation (base R)', code: 'mydata = read.csv("dataset with missing.csv")\nfill = function(v) { v[is.na(v)] = mean(v, na.rm = TRUE); v }\nnew.data = as.data.frame(lapply(mydata, fill))\nsummary(lm(y ~ ., data = new.data))' },
+  { label: 'install mice', code: '# slow the first time: downloads mice into the browser\nwebr::install("mice")\nlibrary(mice)\nmydata = read.csv("dataset with missing.csv")\nmd.pattern(mydata)' },
+  { label: 'mice pmm', code: 'library(mice)\nset.seed(09061982)\nmydata = read.csv("dataset with missing.csv")\nPMM <- mice(mydata, m = 10, method = "pmm", printFlag = FALSE)\nPMM_data <- complete(PMM)\nanyNA(PMM_data)\nsummary(lm(y ~ ., data = PMM_data))' },
+  { label: 'pool (Rubin)', code: 'library(mice)\nset.seed(09061982)\nmydata = read.csv("dataset with missing.csv")\nPMM <- mice(mydata, m = 10, method = "pmm", printFlag = FALSE)\nfit <- with(PMM, lm(y ~ x1 + x2))\nsummary(pool(fit))' }
+];
+</script>
+</head>
+<body data-page="l4">
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="big-num">04</div>
+    <div>
+      <div class="kicker">Lecture 4 · missing data in regression</div>
+      <h1>Holes in the data: <em>delete</em>, <em>fill in</em>, or <em>impute many times</em>?</h1>
+      <p class="lead">Real datasets have missing values, and <code>lm()</code> quietly throws away every row that has even one. This lecture uses a dataset of 1,000 rows with about 10% of each variable missing to compare three strategies: complete-case analysis, mean imputation, and multiple imputation with the <code>mice</code> package (PMM, CART, random forest, Bayesian regression) — and judges them with AIC and BIC.</p>
+      <div class="chips"><span class="chip">NA</span><span class="chip">md.pattern</span><span class="chip">listwise deletion</span><span class="chip">Hmisc::impute</span><span class="chip">mice</span><span class="chip">pmm · cart · rf · norm</span><span class="chip">complete()</span><span class="chip">AIC · BIC</span></div>
+      <div class="hero-meta"><span><b>Source:</b> Lec 4/Lec 3___missing.R (Dr. Mohamed R. Abonazel, 2023)</span><span><b>Data:</b> dataset with missing.csv</span><span><b>Reference:</b> Abonazel (2020), <i>Handling Outliers and Missing Data in Regression Models Using R</i></span></div>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+<aside class="toc"></aside>
+<main class="content">
+
+<section class="section" id="s-why">
+  <div class="sec-head"><span class="sec-num">4.1</span><h2>Why missing data is a problem</h2></div>
+  <p>In Lecture 1 you met <code>NA</code>. A single NA makes <code>mean()</code> return NA. In regression the default is harsher: <code>lm()</code> silently <strong>deletes every row with any NA</strong> in the variables it uses. If missing values are scattered over different columns, you can lose a big chunk of your data even when each column is only a little incomplete.</p>
+  <div class="code" data-label="Lec 3___missing.R — prepare and load"><pre class="r">
+rm(list = ls(all = TRUE))   # Remove all objects in R console
+set.seed(09061982)          # Set the seed for reproducible results
+mydata = read.csv("dataset with missing.csv")
+summary(mydata)
+</pre><div class="out"><pre>       y                x1                  x2
+ Min.   :-4.457   Min.   :0.0000198   Min.   :-3.06110
+ 1st Qu.: 1.220   1st Qu.:0.2346959   1st Qu.:-0.76513
+ Median : 2.658   Median :0.4804115   Median :-0.07309
+ Mean   : 2.738   Mean   :0.4939114   Mean   :-0.06467
+ 3rd Qu.: 4.326   3rd Qu.:0.7426297   3rd Qu.: 0.59686
+ Max.   :10.912   Max.   :0.9997679   Max.   : 3.61092
+ <span class="hl">NAs    :106      NAs    :105         NAs    :114</span></pre></div></div>
+  <ul>
+    <li><code>rm(list = ls(all = TRUE))</code> — clean workspace (Lecture 1, section 1.5).</li>
+    <li><code>set.seed(09061982)</code> — imputation methods use random numbers. Fixing the seed makes the "random" numbers the same every run, so you get the same results as the lecture. (The number is just a date; any number works.)</li>
+    <li>The dataset: response <strong>y</strong> and predictors <strong>x1</strong> (between 0 and 1) and <strong>x2</strong> (centred around 0). 1,000 rows; <code>summary</code> adds an <strong>NAs</strong> line: 106 + 105 + 114 = 325 missing cells, roughly 10.5% per column.</li>
+  </ul>
+  <div class="callout note"><div class="c-title">Background — why values go missing (not in the script, but useful)</div>
+    <ul><li><strong>MCAR</strong> (missing completely at random): the hole has nothing to do with any value — e.g. a lab sample was dropped. Deleting rows wastes data but doesn't bias results.</li>
+    <li><strong>MAR</strong> (missing at random): missingness depends on <em>other observed</em> variables — e.g. older people skip an online question more often. Imputation methods like <code>mice</code> are designed for this case.</li>
+    <li><strong>MNAR</strong> (missing not at random): it depends on the missing value itself — e.g. high earners hide their income. Hardest case; no method fully fixes it.</li></ul></div>
+</section>
+
+<section class="section" id="s-pattern">
+  <div class="sec-head"><span class="sec-num">4.2</span><h2>Seeing the pattern: <code>md.pattern()</code></h2></div>
+  <div class="code" data-label="Lec 3___missing.R"><pre class="r">
+library("mice")            #install.packages("mice")
+md.pattern(mydata)
+</pre><div class="out" data-label="R output — click highlights"><pre>     x1   y  x2
+<span class="ann" data-n="&lt;b&gt;675 rows&lt;/b&gt; have all three values (1 = observed). The last column (0) counts how many values are missing in this pattern.">675   1   1   1   0</span>
+<span class="ann" data-n="&lt;b&gt;114 rows&lt;/b&gt; are missing only &lt;b&gt;x2&lt;/b&gt; (0 under x2) — 1 missing value per row.">114   1   1   0   1</span>
+<span class="ann" data-n="&lt;b&gt;106 rows&lt;/b&gt; are missing only &lt;b&gt;y&lt;/b&gt;.">106   1   0   1   1</span>
+<span class="ann" data-n="&lt;b&gt;105 rows&lt;/b&gt; are missing only &lt;b&gt;x1&lt;/b&gt;.">105   0   1   1   1</span>
+<span class="ann" data-n="Bottom row: missing values &lt;b&gt;per column&lt;/b&gt; (105, 106, 114) and the &lt;b&gt;total&lt;/b&gt; (325). Columns are sorted from least to most missing.">    105 106 114 325</span></pre></div></div>
+  <figure class="figure"><img src="assets/img/l4-md-pattern.png" alt="md.pattern plot: blue = observed, red = missing" loading="lazy"><figcaption><span class="hand">md.pattern also draws this:</span> each row is a pattern, blue = observed, red = missing. Left numbers = how many rows have that pattern; right = how many variables are missing in it.</figcaption></figure>
+  <div class="callout key"><div class="c-title">The key observation</div><p>No row is missing more than one value — but the missing values sit in <em>different</em> rows. 675 + 114 + 106 + 105 = 1,000. So only <strong>675 rows (67.5%)</strong> are complete, although each column is about 89% complete.</p></div>
+</section>
+
+<section class="section" id="s-cc">
+  <div class="sec-head"><span class="sec-num">4.3</span><h2>Strategy 1 — complete-case analysis (just delete)</h2></div>
+  <div class="code" data-label="Lec 3___missing.R — OLS estimation in complete case"><pre class="r">
+ols=lm(y ~.,data = mydata)
+summary(ols)
+</pre><div class="out"><pre>Coefficients:
+            Estimate Std. Error t value Pr(>|t|)
+(Intercept)  1.90097    0.07356   25.84   &lt;2e-16 ***
+x1           1.97302    0.13709   14.39   &lt;2e-16 ***
+x2           2.00554    0.04049   49.53   &lt;2e-16 ***
+---
+Residual standard error: 1.03 on 672 degrees of freedom
+  <span class="hl">(325 observations deleted due to missingness)</span>
+Multiple R-squared:  0.795,	Adjusted R-squared:  0.7944
+F-statistic:  1303 on 2 and 672 DF,  p-value: &lt; 2.2e-16</pre></div></div>
+  <p>R tells you in one quiet line: <strong>325 observations deleted</strong>. The model used 675 rows (df = 675 − 3 = 672). This is called <strong>listwise deletion</strong> or <strong>complete-case analysis</strong>.</p>
+  <div class="grid2">
+    <div class="card teal"><span class="tag">pros</span><h4>Simple and honest</h4><p>No made-up values. If data are MCAR, estimates are unbiased — here the slopes are ≈ 2 and 2, which look right.</p></div>
+    <div class="card rose"><span class="tag">cons</span><h4>Throws away information</h4><p>A third of the rows are gone, including 650 perfectly good observed values in those rows. Smaller n → larger standard errors; if data are not MCAR, also bias.</p></div>
+  </div>
+  <p>We'll use the complete-case estimates (≈ 1.90, 1.97, 2.01) as a reference point for the methods below.</p>
+</section>
+
+<section class="section" id="s-mean">
+  <div class="sec-head"><span class="sec-num">4.4</span><h2>Strategy 2 — mean imputation</h2></div>
+  <p>The simplest way to keep all rows: replace each NA by the mean of its column.</p>
+  <div class="code" data-label="Lec 3___missing.R — imputation with mean"><pre class="r">
+library("Hmisc") #install.packages("Hmisc")
+new.y = impute(mydata$y, mean)  # replace with mean
+new.x1 = impute(mydata$x1, mean)
+new.x2 =impute(mydata$x2, mean)
+new.data = cbind.data.frame(new.y, new.x1, new.x2)
+summary(new.data)
+ols.1=lm(new.y ~.,data = new.data)
+summary(ols.1)
+</pre><div class="out"><pre> 106 values imputed to 2.738115
+ 105 values imputed to 0.4939114
+ 114 values imputed to -0.06467155
+
+Coefficients:
+            Estimate Std. Error t value Pr(>|t|)
+(Intercept)  2.08651    0.09654  21.612   &lt;2e-16 ***
+new.x1       <span class="hl">1.53976</span>    0.17044   9.034   &lt;2e-16 ***
+new.x2       <span class="hl">1.68399</span>    0.04861  34.639   &lt;2e-16 ***
+---
+Residual standard error: 1.49 on 997 degrees of freedom
+Multiple R-squared:  <span class="hl">0.5636</span>,	Adjusted R-squared:  0.5627</pre></div></div>
+  <ul>
+    <li><code>impute(x, mean)</code> from the <strong>Hmisc</strong> package fills NAs with the mean and marks them (that's why some numbers in the residual summary print with a <code>*</code>).</li>
+    <li><code>cbind.data.frame()</code> glues the three filled columns into a new data frame.</li>
+    <li>Now all <strong>1,000</strong> rows are used (df = 997).</li>
+  </ul>
+  <p>But look at the results: both slopes <strong>shrank</strong> (1.97 → 1.54, 2.01 → 1.68) and R² <strong>collapsed</strong> from 0.80 to 0.56. Using more data made the model worse!</p>
+  <div class="callout plain"><div class="c-title">in plain words — why mean imputation backfires</div>
+    <p>Every filled value is the same "average" number with no relation to the other variables. A row with a high x2 but a missing y gets the average y — breaking the pattern "high x2 → high y". Hundreds of such rows sit flat on a horizontal line and drag the slope towards zero. It also fakes certainty: the filled column has an artificially small spread.</p></div>
+</section>
+
+<section class="section" id="s-compare-vis">
+  <div class="sec-head"><span class="sec-num">4.5</span><h2>See it: every method on the real data</h2></div>
+  <p>The widget below uses the actual completed datasets produced by the lecture's code (same seed). <span class="mono" style="color:var(--blue)">●</span> = rows that were complete, <span class="mono" style="color:var(--red)">●</span> = rows where y or x2 was filled in.</p>
+  <div class="widget" id="w-imp">
+    <div class="w-head"><span class="w-badge">compare</span><span class="w-title">y vs x2 after each strategy</span></div>
+    <div class="w-body">
+      <div class="controls"><span class="seg" id="imp-btns">
+        <button class="btn" data-m="cc">complete case</button><button class="btn on" data-m="mean">mean</button><button class="btn" data-m="pmm">PMM</button><button class="btn" data-m="cart">CART</button><button class="btn" data-m="rf">random forest</button><button class="btn" data-m="norm">Bayes (norm)</button></span></div>
+      <div class="w-split"><svg id="imp-svg"></svg><svg id="imp-hist"></svg></div>
+      <div class="readout" id="imp-stats"></div>
+      <div class="explain" id="imp-exp"></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="s-mice">
+  <div class="sec-head"><span class="sec-num">4.6</span><h2>Strategy 3 — multiple imputation with <code>mice</code></h2></div>
+  <p><strong>mice</strong> = <strong>M</strong>ultivariate <strong>I</strong>mputation by <strong>C</strong>hained <strong>E</strong>quations. Two big ideas:</p>
+  <div class="grid2">
+    <div class="card blue"><span class="tag">idea 1 · use the relationships</span><h4>Predict each missing value from the other variables</h4><p>A missing y is filled using x1 and x2; a missing x2 using y and x1 — so filled values follow the data's patterns instead of sitting at the mean.</p></div>
+    <div class="card violet"><span class="tag">idea 2 · admit uncertainty</span><h4>Do it m times, with randomness</h4><p>We don't know the true value, so we create <strong>m</strong> plausible versions (here m = 10). Their differences reflect our uncertainty about the missing values.</p></div>
+  </div>
+  <div class="widget" id="w-chain">
+    <div class="w-head"><span class="w-badge">step through</span><span class="w-title">How chained equations fill a dataset (illustration, toy numbers)</span></div>
+    <div class="w-body">
+      <div class="controls"><button class="btn" id="ch-prev">← back</button><button class="btn primary" id="ch-next">next step →</button><span class="mono small" id="ch-lab"></span></div>
+      <div class="table-wrap" style="margin:.6rem 0"><table class="t" id="ch-table"></table></div>
+      <div class="explain" id="ch-exp"></div>
+    </div>
+  </div>
+  <div class="code" data-label="Lec 3___missing.R — PMM"><pre class="r">
+library("mice")            #install.packages("mice")
+library ("randomForest")   #install.packages("randomForest")
+# 1- perform mice imputation, based on Predictive mean matching (PMM)
+PMM &lt;- mice(mydata, m = 10, method = "pmm" )
+PMM_data &lt;- complete(PMM)  # generate the completed data.
+anyNA(PMM_data)
+PMM_data
+</pre><div class="out"><pre> iter imp variable
+  1   1  y  x1  x2
+  1   2  y  x1  x2
+  ...
+  1   10  y  x1  x2
+  2   1  y  x1  x2
+  ...
+  5   10  y  x1  x2
+[1] FALSE
+               y          x1           x2
+1     1.97840411 0.426283069 -1.050633208
+2     2.06304773 0.406349297  0.227462558
+3     6.62117807 <span class="hl">0.486748088</span>  1.157359430
+...   (1000 rows)</pre></div></div>
+  <ul>
+    <li><code>m = 10</code>: create 10 completed datasets. <code>method = "pmm"</code>: the imputation model (next section).</li>
+    <li>The progress log <code>iter imp variable</code>: for <strong>iter</strong>ation 1–5 (default <code>maxit = 5</code>) and <strong>imp</strong>utation 1–10, it updated y, then x1, then x2. That's 5 × 10 = 50 lines. Add <code>printFlag = FALSE</code> to hide it.</li>
+    <li><code>complete(PMM)</code> returns <strong>one</strong> completed dataset — by default the <strong>first</strong> of the 10. Row 3 had x1 missing; it is now 0.4867.</li>
+    <li><code>anyNA(PMM_data)</code> = "is there any NA left?" → <code>FALSE</code>. ✓</li>
+  </ul>
+
+  <h3>The four imputation methods in the script</h3>
+  <div class="code" data-label="Lec 3___missing.R — CART, random forest, Bayesian"><pre class="r">
+#2- ... based on Classification and regression trees
+CRT_data &lt;- complete(mice(mydata, m = 10, method = "cart" ) )
+#3- ... based on Random forest
+RF_data &lt;- complete(mice(mydata, m = 10, method = "rf" ) )
+#4- ... based on Bayesian linear regression
+Bayes_data &lt;- complete(mice(mydata, m = 10, method = "norm" ) )
+</pre></div>
+  <div class="grid2">
+    <div class="card blue"><span class="tag">"pmm"</span><h4>Predictive Mean Matching</h4><p>Fit a regression, predict the missing case, then find a few observed cases (donors) with the <em>closest predictions</em> and copy the <strong>real observed value</strong> of one of them at random. Imputed values are always real, plausible values. mice's default for numbers.</p></div>
+    <div class="card amber"><span class="tag">"cart"</span><h4>Classification &amp; Regression Trees</h4><p>Splits the data with yes/no questions ("x2 &lt; 0.3?") into groups, and draws a value from the observed cases in the same final group (leaf). Handles non-linear patterns and interactions.</p></div>
+    <div class="card teal"><span class="tag">"rf"</span><h4>Random forest</h4><p>Many trees on random subsets of the data; the missing value is drawn from donors pooled across trees. Flexible but can be noisier.</p></div>
+    <div class="card violet"><span class="tag">"norm"</span><h4>Bayesian linear regression</h4><p>Fits a linear regression, draws the coefficients from their uncertainty (Bayesian), predicts, and adds random normal noise. Ideal when the true relationship is linear with normal errors — as here.</p></div>
+  </div>
+  <div class="callout warn"><div class="c-title">If the random-forest line gives an error</div><p>Recent versions of <strong>mice</strong> use the <strong>ranger</strong> package for <code>method = "rf"</code>. If you see <code>there is no package called 'ranger'</code>, run <code>install.packages("ranger")</code> once. (The script loads <code>randomForest</code>, which older mice versions used.)</p></div>
+
+  <div class="widget" id="w-pmm">
+    <div class="w-head"><span class="w-badge">see it</span><span class="w-title">PMM in slow motion — choosing a donor</span></div>
+    <div class="w-body">
+      <p class="hint">A row with <b>y missing</b> has x1 = 0.55, x2 = 1.10. The regression predicts ŷ for it and for every observed row; PMM takes the 5 observed rows with the closest predictions as donors.</p>
+      <div class="controls"><button class="btn primary" id="pmm-go">🎲 draw a donor</button></div>
+      <svg id="pmm-svg"></svg>
+      <div class="explain" id="pmm-exp"></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="s-aic">
+  <div class="sec-head"><span class="sec-num">4.7</span><h2>Which method wins? AIC and BIC</h2></div>
+  <div class="code" data-label="Lec 3___missing.R — comparison of these methods in regression"><pre class="r">
+PMM=lm(y~.,data = PMM_data)
+CRT=lm(y~.,data = CRT_data)
+RF=lm(y~.,data = RF_data)
+Bayes=lm(y~.,data = Bayes_data)
+AIC=AIC(ols.1, PMM,CRT,RF,Bayes)
+BIC=BIC(ols.1,PMM,CRT,RF,Bayes)
+select=as.matrix(cbind(AIC,BIC)[,-c(1,3)])
+select
+</pre><div class="out"><pre>           AIC      BIC
+ols.1 3639.807 3659.438
+PMM   2936.996 2956.627
+CRT   2966.026 2985.657
+RF    3002.257 3021.888
+<span class="hl">Bayes 2857.530 2877.161</span></pre></div></div>
+  <p><strong>AIC</strong> (Akaike) and <strong>BIC</strong> (Bayesian/Schwarz information criterion) score a model by how well it fits (likelihood L) with a penalty for the number of parameters k. <strong>Lower is better.</strong></p>
+  <div class="formula">$$ AIC=2k-2\ln L \qquad\qquad BIC=k\ln n-2\ln L $$<span class="f-cap">for these models k = 4 (intercept, two slopes, σ) and n = 1000, so BIC = AIC + 4(ln 1000 − 2) = AIC + 19.63 for every model</span></div>
+  <ul>
+    <li><code>AIC(…)</code> and <code>BIC(…)</code> with several models return a small table with columns <code>df</code> and <code>AIC</code>/<code>BIC</code>. <code>cbind</code> puts them side by side (df, AIC, df, BIC) and <code>[,-c(1,3)]</code> drops the two df columns (Lecture 1 negative indexing!).</li>
+    <li>Ranking (best → worst): <strong>Bayes (norm)</strong> 2857.5 → PMM 2937.0 → CART 2966.0 → RF 3002.3 → <strong>mean imputation 3639.8</strong>.</li>
+  </ul>
+  <figure class="figure"><img src="assets/img/l4-aic-bic-barplot.png" alt="Grouped bar chart of AIC and BIC for the five methods" loading="lazy"><figcaption><span class="hand">barplot(select, beside = T, …)</span> — <code>beside = T</code> puts bars next to each other instead of stacking; <code>rainbow(5)</code> gives 5 colours; the legend lists Mean, PMM, CRT, RF, Bayes. Every MI method clearly beats mean imputation.</figcaption></figure>
+
+  <h3>Coefficients side by side</h3>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Method</th><th class="mono">Intercept</th><th class="mono">x1</th><th class="mono">x2</th><th class="mono">R²</th><th class="mono">σ̂</th><th class="mono">AIC</th></tr>
+    <tr><td>complete case (675 rows)</td><td class="num">1.901</td><td class="num">1.973</td><td class="num">2.006</td><td class="num">0.795</td><td class="num">1.030</td><td class="num">—</td></tr>
+    <tr class="bad"><td>mean imputation</td><td class="num">2.087</td><td class="num">1.540</td><td class="num">1.684</td><td class="num">0.564</td><td class="num">1.490</td><td class="num">3639.8</td></tr>
+    <tr><td>PMM</td><td class="num">1.967</td><td class="num">1.924</td><td class="num">2.017</td><td class="num">0.815</td><td class="num">1.048</td><td class="num">2937.0</td></tr>
+    <tr><td>CART</td><td class="num">1.941</td><td class="num">2.072</td><td class="num">2.039</td><td class="num">0.809</td><td class="num">1.064</td><td class="num">2966.0</td></tr>
+    <tr><td>random forest</td><td class="num">1.928</td><td class="num">1.927</td><td class="num">1.992</td><td class="num">0.799</td><td class="num">1.083</td><td class="num">3002.3</td></tr>
+    <tr class="best"><td>Bayes (norm)</td><td class="num">1.944</td><td class="num">2.020</td><td class="num">2.051</td><td class="num">0.827</td><td class="num">1.007</td><td class="num">2857.5</td></tr>
+  </table></div>
+  <p>All four multiple-imputation methods give slopes close to the complete-case values (≈ 2), while mean imputation pulls them down to ≈ 1.5–1.7. (The data look like they were simulated from y = 2 + 2·x1 + 2·x2 + error, in the style of Abonazel's simulation paper, so "close to 2" is what a good method should give.) Note that AIC tracks σ̂: a lower residual spread gives a higher likelihood, so the method with the smallest σ̂ (Bayes) gets the lowest AIC.</p>
+
+  <h3>Three things to keep in mind</h3>
+  <div class="callout trap"><div class="c-title">1 · complete() only uses the first of the 10 datasets</div>
+    <p>The script makes 10 imputations but analyses only one. The proper multiple-imputation workflow fits the model on <em>all</em> m datasets and combines them with <strong>Rubin's rules</strong> (average the estimates; widen the standard errors by the between-imputation variation):</p>
+    <div class="code" data-label="the textbook MI analysis (not in the script)"><pre class="r">
+fit &lt;- with(PMM, lm(y ~ x1 + x2))   # fit on each of the 10 datasets
+summary(pool(fit))                  # combine with Rubin's rules
+</pre><div class="out"><pre>         term estimate  std.error statistic       df       p.value
+1 (Intercept) 1.952080 0.07367765  26.49487 156.7995  8.824729e-60
+2          x1 1.976975 0.13944514  14.17744  70.6954  2.352884e-22
+3          x2 2.028780 0.03564732  56.91254 190.2761 1.983248e-121</pre></div></div></div>
+  <div class="callout warn"><div class="c-title">2 · AIC across different datasets is a rough guide</div><p>AIC is designed to compare models fitted to the <em>same</em> data. Here each model is fitted to a <em>differently imputed</em> dataset, so lower AIC partly just means "this method imputed values that sit closer to a straight line". It's a useful heuristic used in the lecture's reference paper, but not a formal test.</p></div>
+  <div class="callout note"><div class="c-title">3 · Randomness</div><p>With another seed the numbers shift a little (especially between PMM, CART and RF). The big picture — MI ≫ mean imputation — is stable.</p></div>
+</section>
+
+<section class="section" id="s-quiz">
+  <div class="sec-head"><span class="sec-num">✓</span><h2>Check yourself</h2></div>
+  <div class="quiz" data-id="l4">
+    <div class="quiz-top"><h3>Lecture 4 quiz</h3><span class="quiz-score"></span></div>
+    <div class="q" data-a="1"><div class="q-text">Each of three columns has about 10% missing, in different rows. Roughly how many rows does <code>lm()</code> use out of 1,000?</div>
+      <div class="q-opts"><button class="q-opt">about 900</button><button class="q-opt">about 675</button><button class="q-opt">1,000</button><button class="q-opt">about 100</button></div>
+      <div class="q-fb">Any row with any NA is dropped. Here 325 rows have one NA each → 675 remain.</div></div>
+    <div class="q" data-a="3"><div class="q-text">In the md.pattern output, what does the row <code>114  1  1  0  1</code> mean?</div>
+      <div class="q-opts"><button class="q-opt">114 values are observed</button><button class="q-opt">x2 has 1 missing value</button><button class="q-opt">Row number 114 is incomplete</button><button class="q-opt">114 rows are missing x2 only (one missing value per row)</button></div>
+      <div class="q-fb">1 = observed, 0 = missing; the first number counts rows with that pattern, the last counts missing variables in the pattern.</div></div>
+    <div class="q" data-a="0"><div class="q-text">Why did mean imputation make the slopes smaller?</div>
+      <div class="q-opts"><button class="q-opt">Filled values ignore the relationship with other variables, so they flatten the pattern</button><button class="q-opt">Because n became larger</button><button class="q-opt">Because the mean is always smaller than the median</button><button class="q-opt">It didn't — slopes are unchanged</button></div>
+      <div class="q-fb">This "attenuation" also lowers R² and understates variability.</div></div>
+    <div class="q" data-a="2"><div class="q-text">What does PMM put into a missing cell?</div>
+      <div class="q-opts"><button class="q-opt">The column mean</button><button class="q-opt">The regression prediction ŷ exactly</button><button class="q-opt">A real observed value from a donor whose prediction is close</button><button class="q-opt">A random number between min and max</button></div>
+      <div class="q-fb">Predictive Mean Matching matches on predicted values but imputes an actual observed value — so imputations are always realistic.</div></div>
+    <div class="q" data-a="1"><div class="q-text"><code>complete(PMM)</code> after <code>mice(…, m = 10)</code> returns…</div>
+      <div class="q-opts"><button class="q-opt">the average of the 10 datasets</button><button class="q-opt">the first completed dataset</button><button class="q-opt">all 10 stacked on top of each other</button><button class="q-opt">the original data with NAs</button></div>
+      <div class="q-fb">Default <code>action = 1</code>. Use <code>with()</code> + <code>pool()</code> to analyse all 10.</div></div>
+    <div class="q" data-a="3"><div class="q-text">Two models: AIC 2857 and AIC 2937. Which is preferred?</div>
+      <div class="q-opts"><button class="q-opt">2937, higher is better</button><button class="q-opt">Neither, AIC can't compare models</button><button class="q-opt">The one with fewer rows</button><button class="q-opt">2857 — lower AIC is better</button></div>
+      <div class="q-fb">AIC = 2k − 2 ln L. Lower means better fit for the complexity.</div></div>
+    <div class="q" data-a="0"><div class="q-text">Why does the script call <code>set.seed(09061982)</code>?</div>
+      <div class="q-opts"><button class="q-opt">So the random imputations are reproducible</button><button class="q-opt">To remove missing values</button><button class="q-opt">To speed up mice</button><button class="q-opt">It sets the number of imputations</button></div>
+      <div class="q-fb">mice draws random numbers; the same seed gives the same draws every run.</div></div>
+    <div class="controls"><button class="btn ghost quiz-reset">↺ try again</button></div>
+  </div>
+</section>
+
+<section class="section" id="s-sum">
+  <div class="sec-head"><span class="sec-num">★</span><h2>Summary</h2></div>
+  <div class="takeaways"><ul>
+    <li><code>summary()</code> shows NAs per column; <code>md.pattern()</code> shows which combinations are missing.</li>
+    <li><code>lm()</code> does <strong>listwise deletion</strong>: here 325 of 1,000 rows lost. Simple, unbiased under MCAR, but wasteful.</li>
+    <li><strong>Mean imputation</strong> keeps all rows but flattens relationships: slopes shrink (2 → 1.5–1.7), R² drops (0.80 → 0.56). Avoid it.</li>
+    <li><strong>mice</strong> imputes each variable from the others, m times, iterating (chained equations). Methods: <code>pmm</code>, <code>cart</code>, <code>rf</code> (needs ranger), <code>norm</code> (Bayesian).</li>
+    <li>AIC/BIC (lower = better): Bayes &lt; PMM &lt; CART &lt; RF ≪ mean.</li>
+    <li>Proper MI analysis: <code>with(imp, lm(...))</code> then <code>pool()</code> (Rubin's rules) instead of analysing one <code>complete()</code> dataset.</li>
+  </ul></div>
+</section>
+
+<div id="lec-nav"></div>
+</main>
+</div>
+
+<script>
+document.addEventListener('ds:ready', () => {
+  const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+  const P = window.DS_PLOT, D = window.DS_MISSING;
+
+  // multiple regression y ~ x1 + x2 via normal equations
+  function mlr(rows) {
+    const n = rows.length; const X = rows.map(r => [1, r[1], r[2]]), y = rows.map(r => r[0]);
+    const A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], b = [0, 0, 0];
+    X.forEach((x, i) => { for (let a = 0; a < 3; a++) { b[a] += x[a] * y[i]; for (let c = 0; c < 3; c++) A[a][c] += x[a] * x[c]; } });
+    for (let i = 0; i < 3; i++) { let piv = i; for (let k = i + 1; k < 3; k++) if (Math.abs(A[k][i]) > Math.abs(A[piv][i])) piv = k;[A[i], A[piv]] = [A[piv], A[i]];[b[i], b[piv]] = [b[piv], b[i]]; for (let k = i + 1; k < 3; k++) { const f = A[k][i] / A[i][i]; for (let c = i; c < 3; c++) A[k][c] -= f * A[i][c]; b[k] -= f * b[i]; } }
+    const beta = [0, 0, 0]; for (let i = 2; i >= 0; i--) { let s = b[i]; for (let c = i + 1; c < 3; c++) s -= A[i][c] * beta[c]; beta[i] = s / A[i][i]; }
+    const fit = X.map(x => beta[0] + beta[1] * x[1] + beta[2] * x[2]);
+    const rss = S.sum(y.map((v, i) => (v - fit[i]) ** 2)), my = S.mean(y), tss = S.sum(y.map(v => (v - my) ** 2));
+    const ll = -n / 2 * (Math.log(2 * Math.PI) + Math.log(rss / n) + 1);
+    return { beta, r2: 1 - rss / tss, sigma: Math.sqrt(rss / (n - 3)), aic: -2 * ll + 2 * 4, n };
+  }
+
+  /* ---------- imputation comparison ---------- */
+  (function () {
+    const orig = D.orig;
+    const means = [0, 1, 2].map(j => S.mean(orig.map(r => r[j]).filter(v => v !== null)));
+    const meanData = orig.map(r => r.map((v, j) => (v === null ? means[j] : v)));
+    const filledY = orig.map(r => r[0] === null), filledX2 = orig.map(r => r[2] === null), filledAny = orig.map(r => r.includes(null));
+    let m = 'mean';
+    const TXT = {
+      cc: 'Only the 675 complete rows. Nothing invented, but a third of the data is gone.',
+      mean: 'Red points are stuck on two lines: <b>y = 2.74</b> (rows with y missing) and <b>x2 = −0.065</b> (rows with x2 missing). They ignore the trend and drag the slope down. The histogram of x2 gets a tall spike at the mean.',
+      pmm: 'Red points blend into the cloud — PMM copied real observed values from rows with similar predictions. The trend is preserved.',
+      cart: 'Tree-based draws also follow the trend; values come from observed cases in the same leaf of the tree.',
+      rf: 'Random-forest imputations follow the trend too, with a little more scatter.',
+      norm: 'Bayesian regression imputations lie along the regression line plus normal noise — closest to how this (linear) data was generated, hence the lowest AIC.'
+    };
+    function data() { return m === 'cc' ? orig.filter(r => !r.includes(null)) : m === 'mean' ? meanData : D[m]; }
+    function draw() {
+      const rows = data(), isImp = m === 'cc' ? rows.map(() => false) : filledAny.map((f, i) => filledY[i] || filledX2[i]);
+      const p = P($('#imp-svg'), { w: 460, h: 340, x: [-3.3, 3.8], y: [-5, 11.5], xlab: 'x2', ylab: 'y' });
+      rows.forEach((r, i) => { if (!isImp[i]) p.el('circle', { cx: p.X(r[2]), cy: p.Y(r[0]), r: 2.2, class: 'pt', style: 'fill-opacity:.28' }); });
+      rows.forEach((r, i) => { if (isImp[i]) p.el('circle', { cx: p.X(r[2]), cy: p.Y(r[0]), r: 2.8, class: 'pt-red', style: 'fill-opacity:.75' }); });
+      const fit = mlr(rows), mx1 = S.mean(rows.map(r => r[1]));
+      p.el('line', { x1: p.X(-3.3), y1: p.Y(fit.beta[0] + fit.beta[1] * mx1 + fit.beta[2] * -3.3), x2: p.X(3.8), y2: p.Y(fit.beta[0] + fit.beta[1] * mx1 + fit.beta[2] * 3.8), class: 'ln' });
+      // histogram of x2
+      const x2 = rows.map(r => r[2]), k = 36, lo = -3.3, w = 7.1 / k, bins = new Array(k).fill(0), binsImp = new Array(k).fill(0);
+      x2.forEach((v, i) => { const b = Math.max(0, Math.min(k - 1, Math.floor((v - lo) / w))); bins[b]++; if (m !== 'cc' && filledX2[i]) binsImp[b]++; });
+      const h = P($('#imp-hist'), { w: 360, h: 340, x: [lo, 3.8], y: [0, Math.max(...bins) * 1.1], xlab: 'x2 distribution', ylab: 'count' });
+      bins.forEach((c, b) => { h.el('rect', { x: h.X(lo + b * w), y: h.Y(c), width: h.X(lo + w) - h.X(lo) - 1, height: h.Y(0) - h.Y(c), class: 'pt', style: 'fill-opacity:.45' }); if (binsImp[b]) h.el('rect', { x: h.X(lo + b * w), y: h.Y(binsImp[b]), width: h.X(lo + w) - h.X(lo) - 1, height: h.Y(0) - h.Y(binsImp[b]), class: 'pt-red', style: 'fill-opacity:.8' }); });
+      const sdx2 = S.sd(x2);
+      $('#imp-stats').innerHTML = `<div class="stat"><div class="k">rows used</div><div class="v">${fit.n}</div></div><div class="stat"><div class="k">b(x1)</div><div class="v ${Math.abs(fit.beta[1] - 2) < .15 ? 'good' : 'bad'}">${fit.beta[1].toFixed(3)}</div></div><div class="stat"><div class="k">b(x2)</div><div class="v ${Math.abs(fit.beta[2] - 2) < .1 ? 'good' : 'bad'}">${fit.beta[2].toFixed(3)}</div></div><div class="stat"><div class="k">R²</div><div class="v">${fit.r2.toFixed(3)}</div></div><div class="stat"><div class="k">sd(x2)</div><div class="v">${sdx2.toFixed(3)}</div></div><div class="stat"><div class="k">AIC</div><div class="v">${m === 'cc' ? '—' : fit.aic.toFixed(1)}</div></div>`;
+      $('#imp-exp').innerHTML = TXT[m] + (m === 'cc' ? '' : ' <span class="muted">(Numbers computed live in your browser from the exported data — they match R\'s output above.)</span>');
+    }
+    $$('#imp-btns .btn').forEach(b => b.addEventListener('click', () => { m = b.dataset.m; $$('#imp-btns .btn').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
+    draw();
+  })();
+
+  /* ---------- chained equations stepper (toy) ---------- */
+  (function () {
+    const NA = null;
+    const base = [[3.1, 0.40, 0.55], [NA, 0.70, 1.20], [1.2, NA, -0.40], [4.0, 0.90, NA], [0.8, 0.20, -0.70], [2.6, NA, 0.30]];
+    const S0 = [[3.1, .4, .55], [4.0, .7, 1.2], [1.2, .9, -.4], [4.0, .9, .3], [.8, .2, -.7], [2.6, .4, .3]];     // random draws from observed values
+    const S1 = [[3.1, .4, .55], [4.6, .7, 1.2], [1.2, .9, -.4], [4.0, .9, .3], [.8, .2, -.7], [2.6, .4, .3]];      // y updated
+    const S2 = [[3.1, .4, .55], [4.6, .7, 1.2], [1.2, .55, -.4], [4.0, .9, .3], [.8, .2, -.7], [2.6, .45, .3]];    // x1 updated
+    const S3 = [[3.1, .4, .55], [4.6, .7, 1.2], [1.2, .55, -.4], [4.0, .9, .71], [.8, .2, -.7], [2.6, .45, .3]];   // x2 updated
+    const steps = [
+      { d: base, hl: [], txt: 'A toy dataset with 3 holes in different columns (NA). The real data has 325 holes, but the logic is identical.' },
+      { d: S0, hl: [[1, 0], [2, 1], [3, 2], [5, 1]], txt: '<b>Start:</b> fill every hole with a random draw from that column\'s observed values — just a rough first guess so that regressions can run.' },
+      { d: S1, hl: [[1, 0]], txt: '<b>Update y:</b> regress y on x1 and x2 using rows where y was <i>observed</i>, then re-impute the missing y (with the chosen method: pmm, cart, rf or norm). The log line <code>1 1 y</code> is this step.' },
+      { d: S2, hl: [[2, 1], [5, 1]], txt: '<b>Update x1:</b> now regress x1 on y and x2 (using the freshly imputed y) and re-impute the missing x1 values. Log: <code>x1</code>.' },
+      { d: S3, hl: [[3, 2]], txt: '<b>Update x2</b> the same way. That completes iteration 1 — the log line <code>1 1 y x1 x2</code>.' },
+      { d: S3, hl: [], txt: '<b>Iterate:</b> repeat the y → x1 → x2 cycle (default <code>maxit = 5</code> iterations) so the guesses settle down and stop depending on the random start. Result: <b>one</b> completed dataset.' },
+      { d: S3, hl: [], multi: true, txt: '<b>Repeat m = 10 times</b> from different random starts → 10 completed datasets whose imputed cells differ a bit. Analyse each and pool (Rubin\'s rules), or — as in the script — take one with <code>complete()</code>.' }
+    ];
+    let k = 0;
+    function draw() {
+      const s = steps[k];
+      $('#ch-lab').textContent = `step ${k} of ${steps.length - 1}`;
+      $('#ch-prev').disabled = k === 0; $('#ch-next').disabled = k === steps.length - 1;
+      let h = '<tr><th>row</th><th class="mono">y</th><th class="mono">x1</th><th class="mono">x2</th>' + (s.multi ? '<th class="mono">imputation 2…10</th>' : '') + '</tr>';
+      s.d.forEach((r, i) => {
+        h += `<tr><td class="num">${i + 1}</td>` + r.map((v, j) => {
+          const wasNA = base[i][j] === null, isHl = s.hl.some(([a, b]) => a === i && b === j);
+          const style = v === null ? 'color:var(--red);font-weight:700' : isHl ? 'background:var(--hl-soft);font-weight:700' : wasNA ? 'color:var(--red)' : '';
+          return `<td class="num" style="${style}">${v === null ? 'NA' : v.toFixed(2)}</td>`;
+        }).join('') + (s.multi ? `<td class="small muted">${base[i].includes(null) ? 'slightly different value(s)' : 'same (observed)'}</td>` : '') + '</tr>';
+      });
+      $('#ch-table').innerHTML = h;
+      $('#ch-exp').innerHTML = s.txt + ' <span class="muted small">Red = cells that were originally missing; yellow = changed in this step.</span>';
+    }
+    $('#ch-prev').addEventListener('click', () => { if (k > 0) { k--; draw(); } });
+    $('#ch-next').addEventListener('click', () => { if (k < steps.length - 1) { k++; draw(); } });
+    draw();
+  })();
+
+  /* ---------- PMM donor demo (real data) ---------- */
+  (function () {
+    const obs = D.orig.filter(r => !r.includes(null));
+    const fit = mlr(obs);
+    const pred = r => fit.beta[0] + fit.beta[1] * r[1] + fit.beta[2] * r[2];
+    const target = [null, 0.55, 1.10], yhatT = pred(target);
+    const cand = obs.map(r => ({ r, yh: pred(r), d: Math.abs(pred(r) - yhatT) })).sort((a, b) => a.d - b.d);
+    const donors = cand.slice(0, 5);
+    let pick = -1;
+    function draw() {
+      const lo = yhatT - 1.3, hi = yhatT + 1.3;
+      const p = P($('#pmm-svg'), { w: 620, h: 250, x: [lo, hi], y: [yhatT - 3.5, yhatT + 3.5], xlab: 'predicted ŷ (from the regression)', ylab: 'observed y' });
+      cand.filter(c => c.yh > lo && c.yh < hi).forEach(c => p.el('circle', { cx: p.X(c.yh), cy: p.Y(c.r[0]), r: 3, class: 'pt-hollow', style: 'stroke-opacity:.4' }));
+      donors.forEach((c, i) => p.el('circle', { cx: p.X(c.yh), cy: p.Y(c.r[0]), r: i === pick ? 8 : 5.5, style: `fill:${i === pick ? 'var(--red)' : '#d99a12'};stroke:var(--ink);stroke-width:${i === pick ? 2 : 1}` }));
+      p.el('line', { x1: p.X(yhatT), x2: p.X(yhatT), y1: p.m.t, y2: p.h - p.m.b, class: 'ln-dash' });
+      const t = p.el('text', { x: p.X(yhatT) + 5, y: p.m.t + 14, class: 'lbl-txt' }); t.textContent = `missing row: ŷ = ${yhatT.toFixed(2)}`;
+      if (pick >= 0) { const c = donors[pick]; p.el('line', { x1: p.X(c.yh), y1: p.Y(c.r[0]), x2: p.X(yhatT), y2: p.Y(c.r[0]), style: 'stroke:var(--red);stroke-width:2;stroke-dasharray:4 3' }); p.el('circle', { cx: p.X(yhatT), cy: p.Y(c.r[0]), r: 7, style: 'fill:none;stroke:var(--red);stroke-width:2.5' }); }
+      $('#pmm-exp').innerHTML = `Fitted on the 675 complete rows: ŷ = ${fit.beta[0].toFixed(2)} + ${fit.beta[1].toFixed(2)}·x1 + ${fit.beta[2].toFixed(2)}·x2 → for our row ŷ = <b>${yhatT.toFixed(3)}</b>. The 5 observed rows with the closest predictions (yellow) have real y values ${donors.map(c => c.r[0].toFixed(2)).join(', ')}.` +
+        (pick >= 0 ? ` 🎲 Donor ${pick + 1} drawn → the missing y becomes <b>${donors[pick].r[0].toFixed(4)}</b> — a real, observed value, not the prediction itself. Draw again: another imputation may pick another donor, which is how the m datasets differ.` : ' Press the button to draw one at random.');
+    }
+    $('#pmm-go').addEventListener('click', () => { pick = Math.floor(Math.random() * 5); draw(); });
+    draw();
+  })();
+});
+</script>
+</body>
+</html>

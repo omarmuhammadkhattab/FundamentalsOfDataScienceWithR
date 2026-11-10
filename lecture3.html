@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L3 · Correlation &amp; OLS — DS550</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@500;700&family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/site.js"></script>
+<script>
+const HS = 'hours  <- c(2, 4, 6, 8, 10, 3, 5, 7, 9, 11)\nscores <- c(60, 70, 80, 85, 90, 65, 75, 82, 88, 92)\n';
+window.R_SNIPPETS = [
+  { label: 'cor', code: HS + 'cor(hours, scores)\ncor(hours, scores, method = "spearman")' },
+  { label: 'r by hand', code: HS + 'dx <- hours - mean(hours)\ndy <- scores - mean(scores)\nsum(dx * dy) / sqrt(sum(dx^2) * sum(dy^2))' },
+  { label: 'cor.test', code: HS + 'cor.test(hours, scores)' },
+  { label: 't by hand', code: 'r <- 0.75; n <- 30\nt <- r * sqrt(n - 2) / sqrt(1 - r^2)\nt\nqt(0.975, df = n - 2)   # critical value\n2 * pt(-abs(t), df = n - 2)   # p-value' },
+  { label: 'lm', code: HS + 'model <- lm(scores ~ hours)\nsummary(model)' },
+  { label: 'OLS by hand', code: HS + 'b1 <- sum((hours - mean(hours)) * (scores - mean(scores))) / sum((hours - mean(hours))^2)\nb0 <- mean(scores) - b1 * mean(hours)\nc(b0 = b0, b1 = b1)' },
+  { label: 'plot + line', code: HS + 'model <- lm(scores ~ hours)\nplot(hours, scores, pch = 19)\nabline(model, col = "red", lwd = 2)\ngrid()' },
+  { label: 'diagnostics', code: HS + 'model <- lm(scores ~ hours)\npar(mfrow = c(2, 2))\nplot(model)\npar(mfrow = c(1, 1))' },
+  { label: 'predict', code: HS + 'model <- lm(scores ~ hours)\nnew_student <- data.frame(hours = 6.5)\npredict(model, newdata = new_student, interval = "confidence")\npredict(model, newdata = new_student, interval = "prediction")' }
+];
+</script>
+</head>
+<body data-page="l3">
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="big-num">03</div>
+    <div>
+      <div class="kicker">Lecture 3 · correlation &amp; simple linear regression</div>
+      <h1>From "they move together" to <em>a line that predicts</em></h1>
+      <p class="lead">Two handouts in one lecture. First the <strong>correlation coefficient</strong>: what it measures, how to compute it by hand, its limits, and how to test whether it is significant. Then <strong>simple linear regression</strong>: the model, the Ordinary Least Squares (OLS) method that finds the best line, the assumptions behind it, how to read every number in <code>summary(lm)</code>, and how to predict with confidence and prediction intervals.</p>
+      <div class="chips"><span class="chip">r</span><span class="chip">cor.test</span><span class="chip">t = r√(n−2)/√(1−r²)</span><span class="chip">OLS</span><span class="chip">RSS</span><span class="chip">Gauss–Markov</span><span class="chip">R²</span><span class="chip">predict()</span></div>
+      <div class="hero-meta"><span><b>Sources:</b> Correlation Coefficient.pdf · Linear_Regression_and_OLS_in_R.pdf</span><span><b>Videos:</b> Lec 3 parts 1–3</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+<aside class="toc"></aside>
+<main class="content">
+
+<section class="section" id="s-r">
+  <div class="sec-head"><span class="sec-num">3.1</span><h2>The correlation coefficient r</h2></div>
+  <p>The <strong>correlation coefficient</strong> (Pearson's r) is one number that describes <em>how strongly</em> and <em>in which direction</em> two numeric variables move together <em>along a straight line</em>.</p>
+  <div class="grid3">
+    <div class="card blue"><span class="tag">r = +1</span><h4>Perfect positive line</h4><p>All points exactly on an uphill line.</p></div>
+    <div class="card"><span class="tag">r = 0</span><h4>No linear relationship</h4><p>Knowing X tells you nothing about Y — at least not linearly.</p></div>
+    <div class="card rose"><span class="tag">r = −1</span><h4>Perfect negative line</h4><p>All points exactly on a downhill line.</p></div>
+  </div>
+  <div class="table-wrap"><table class="t">
+    <tr><th>|r| (size, ignoring the sign)</th><th>Strength</th><th>Direction</th></tr>
+    <tr><td class="mono">|r| ≥ 0.7</td><td><strong>Strong</strong></td><td rowspan="3"><strong>r &gt; 0:</strong> when one increases, the other tends to increase.<br><strong>r &lt; 0:</strong> when one increases, the other tends to decrease.</td></tr>
+    <tr><td class="mono">0.3 ≤ |r| &lt; 0.7</td><td><strong>Moderate</strong></td></tr>
+    <tr><td class="mono">|r| &lt; 0.3</td><td><strong>Weak</strong></td></tr>
+  </table></div>
+  <div class="widget" id="w-drag">
+    <div class="w-head"><span class="w-badge">play</span><span class="w-title">Build your own scatter plot — r updates live</span></div>
+    <div class="w-body">
+      <p class="hint">Click on empty space to add a point, drag a point to move it, double-click a point to delete it. Then try the presets.</p>
+      <div class="controls"><button class="btn ghost" data-pre="strong">strong +</button><button class="btn ghost" data-pre="neg">moderate −</button><button class="btn ghost" data-pre="none">no relation</button><button class="btn ghost" data-pre="curve">perfect curve</button><button class="btn ghost" data-pre="outlier">+ one outlier</button><button class="btn ghost" data-pre="clear">clear</button></div>
+      <svg id="drag-svg"></svg>
+      <div class="readout" id="drag-stats"></div>
+      <div class="explain" id="drag-exp"></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="s-calc">
+  <div class="sec-head"><span class="sec-num">3.2</span><h2>Computing r step by step</h2></div>
+  <div class="formula">$$ r=\frac{\sum (x_i-\bar x)(y_i-\bar y)}{\sqrt{\sum (x_i-\bar x)^2\;\sum (y_i-\bar y)^2}} $$<span class="f-cap">\(\bar x\) ("x-bar") = mean of x · \(\bar y\) = mean of y</span></div>
+  <div class="callout plain"><div class="c-title">in plain words</div>
+    <p>For each point ask: is x above or below its average? Is y above or below its average? If both are above (or both below), the product of the two distances is <strong>positive</strong> — evidence for an uphill pattern. If one is above and the other below, the product is <strong>negative</strong>. Add up all products (top of the fraction). The bottom just rescales the answer so it always lands between −1 and +1, whatever the units.</p></div>
+  <p>The handout's example: 10 students, hours studied (x) and exam score (y). Follow the five steps:</p>
+  <div class="widget" id="w-steps">
+    <div class="w-head"><span class="w-badge">step through</span><span class="w-title">r for hours vs scores, by hand</span></div>
+    <div class="w-body">
+      <div class="controls"><button class="btn" id="st-prev">← back</button><button class="btn primary" id="st-next">next step →</button><span class="mono small" id="st-lab"></span></div>
+      <div class="table-wrap" style="margin:.6rem 0"><table class="t" id="st-table"></table></div>
+      <div class="explain" id="st-exp"></div>
+    </div>
+  </div>
+  <div class="code" data-label="Correlation Coefficient.pdf — example in R"><pre class="r">
+hours &lt;- c(2, 4, 6, 8, 10, 3, 5, 7, 9, 11)
+scores &lt;- c(60, 70, 80, 85, 90, 65, 75, 82, 88, 92)
+# Calculate correlation coefficient
+r &lt;- cor(hours, scores)
+print(r)
+</pre><div class="out"><pre>[1] 0.9844342</pre></div></div>
+  <p><strong>Interpretation:</strong> r ≈ 0.984 → a <strong>very strong positive</strong> linear relationship: students who study more tend to score higher. (The handout's text says "r = 0.986" — a small typo; R gives 0.9844.)</p>
+  <div class="code" data-label="Correlation Coefficient.pdf — visualisation"><pre class="r">
+plot(hours, scores, main="Scatter Plot of Hours Studied vs Exam Scores",
+     xlab="Hours Studied", ylab="Exam Scores", pch=19)
+abline(lm(scores ~ hours), col="red")
+</pre></div>
+  <figure class="figure"><img src="assets/img/l3-hours-scores-line.png" alt="Scatter of hours vs scores with red regression line" loading="lazy"><figcaption><span class="hand">pch = 19</span> means solid round dots. <code>abline(lm(...))</code> adds the best-fitting straight line (we'll derive it in section 3.6). The points hug the line closely → r near 1.</figcaption></figure>
+</section>
+
+<section class="section" id="s-limits">
+  <div class="sec-head"><span class="sec-num">3.3</span><h2>Cautions and limitations</h2></div>
+  <div class="grid3">
+    <div class="card amber"><span class="tag">1 · only straight lines</span><h4>Non-linear relationships</h4><p>A perfect U-shape can have r ≈ 0. Zero correlation means "no <em>linear</em> relationship", not "no relationship". Try the <em>perfect curve</em> preset above.</p></div>
+    <div class="card rose"><span class="tag">2 · fragile</span><h4>Outliers</h4><p>One extreme point can create a strong r out of nothing — or destroy a real one. Always <strong>plot</strong> before trusting r. Try <em>+ one outlier</em>.</p></div>
+    <div class="card violet"><span class="tag">3 · the big one</span><h4>Correlation ≠ causation</h4><p>Ice-cream sales and drownings are correlated — both rise in summer. A third variable (heat) drives both. High r never proves that X causes Y.</p></div>
+  </div>
+</section>
+
+<section class="section" id="s-ttest">
+  <div class="sec-head"><span class="sec-num">3.4</span><h2>Is the correlation significant? The t-test for r</h2></div>
+  <p>Our r comes from a <em>sample</em>. Even if two variables are unrelated in the whole population (true correlation ρ, "rho", = 0), a random sample can show some r ≠ 0 by chance. The t-test asks: is our r too big to be just luck?</p>
+  <div class="grid2">
+    <div class="card"><span class="tag">null hypothesis</span><h4>H₀: ρ = 0</h4><p>No correlation in the population.</p></div>
+    <div class="card blue"><span class="tag">alternative</span><h4>H₁: ρ ≠ 0</h4><p>There is a correlation (two-sided).</p></div>
+  </div>
+  <div class="formula">$$ t=\frac{r\sqrt{n-2}}{\sqrt{1-r^2}}\qquad \text{df}=n-2 $$<span class="f-cap">n = sample size · compare |t| with the critical value of the t-distribution, or look at the p-value</span></div>
+  <h3>Handout example: r = 0.75, n = 30</h3>
+  <div class="formula">$$ t=\frac{0.75\sqrt{28}}{\sqrt{1-0.5625}}=\frac{0.75\times5.2915}{\sqrt{0.4375}}=\frac{3.9686}{0.6614}\approx 6.00 $$</div>
+  <p>The critical value for α = 0.05 (two-sided) with df = 28 is <strong>t* = 2.048</strong>. Since 6.00 &gt; 2.048, we <strong>reject H₀</strong>: the correlation is statistically significant.</p>
+  <div class="widget" id="w-t">
+    <div class="w-head"><span class="w-badge">calculator</span><span class="w-title">t-test for a correlation</span></div>
+    <div class="w-body">
+      <div class="slider"><label for="t-r">r</label><input type="range" id="t-r" min="-0.99" max="0.99" step="0.01" value="0.75"><output id="t-ro"></output></div>
+      <div class="slider"><label for="t-n">n</label><input type="range" id="t-n" min="4" max="200" step="1" value="30"><output id="t-no"></output></div>
+      <div class="slider"><label for="t-a">α</label><input type="range" id="t-a" min="0" max="2" step="1" value="1"><output id="t-ao"></output></div>
+      <div class="readout" id="t-stats"></div>
+      <svg id="t-svg"></svg>
+      <div class="explain" id="t-exp"></div>
+    </div>
+  </div>
+  <h3>The same test in one line: <code>cor.test()</code></h3>
+  <div class="code" data-label="Correlation Coefficient.pdf — cor.test"><pre class="r">
+result &lt;- cor.test(hours, scores)
+print(result)
+</pre><div class="out" data-label="R output — click highlights"><pre>
+	Pearson's product-moment correlation
+
+data:  hours and scores
+<span class="ann" data-n="&lt;b&gt;t = 15.843&lt;/b&gt; = 0.9844·√8 / √(1 − 0.9844²). &lt;b&gt;df = 8&lt;/b&gt; = n − 2 = 10 − 2. &lt;b&gt;p-value = 2.5×10⁻⁷&lt;/b&gt; = 0.00000025: if there were truly no correlation, a t this large would almost never happen. p &lt; 0.05 → reject H₀.">t = 15.843, df = 8, p-value = 2.521e-07</span>
+<span class="ann" data-n="States H₁: the test is &lt;b&gt;two-sided&lt;/b&gt; (ρ ≠ 0). You can change it with &lt;code&gt;alternative = &quot;greater&quot;&lt;/code&gt; or &lt;code&gt;&quot;less&quot;&lt;/code&gt;.">alternative hypothesis: true correlation is not equal to 0</span>
+<span class="ann" data-n="&lt;b&gt;95% confidence interval for ρ&lt;/b&gt;: we are 95% confident the true population correlation is between 0.933 and 0.996. It does not contain 0 — another way to see that the correlation is significant. (R builds it with Fisher's z-transformation, which is why it isn't symmetric around 0.984.)">95 percent confidence interval:
+ 0.9332770 0.9964409</span>
+<span class="ann" data-n="The sample correlation r itself, same as &lt;code&gt;cor(hours, scores)&lt;/code&gt;.">sample estimates:
+      cor
+0.9844342</span></pre></div></div>
+  <div class="callout key"><div class="c-title">Decision rule (you'll use it all course)</div><p><strong>p-value &lt; α (usually 0.05) → reject H₀.</strong> The p-value is the probability of getting a result at least this extreme <em>if H₀ were true</em>. It is not the probability that H₀ is true.</p></div>
+</section>
+
+<section class="section" id="s-model">
+  <div class="sec-head"><span class="sec-num">3.5</span><h2>Simple linear regression: the model</h2></div>
+  <p>Correlation is <strong>symmetric</strong> — cor(X, Y) = cor(Y, X) — and only describes association. <strong>Regression</strong> is <strong>directional</strong>: X explains or predicts Y, and it gives us an actual equation.</p>
+  <div class="formula">$$ \text{Population model: } Y_i=\beta_0+\beta_1X_i+\varepsilon_i \qquad\quad \text{Fitted line: } \hat Y_i=\hat\beta_0+\hat\beta_1X_i $$</div>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Symbol</th><th>Name</th><th>Meaning</th></tr>
+    <tr><td class="mono">Yᵢ</td><td>response / dependent variable</td><td>what we explain — exam score of student i</td></tr>
+    <tr><td class="mono">Xᵢ</td><td>predictor / independent variable</td><td>what we use to explain — hours studied</td></tr>
+    <tr><td class="mono">β₀</td><td>intercept</td><td>expected Y when X = 0</td></tr>
+    <tr><td class="mono">β₁</td><td>slope</td><td>expected change in Y for one more unit of X</td></tr>
+    <tr><td class="mono">εᵢ</td><td>error term</td><td>everything else (omitted factors, noise); assumed to average 0 with constant variance σ²</td></tr>
+    <tr><td class="mono">β̂ (beta-hat)</td><td>estimate</td><td>the hat means "estimated from data". Unknown β's → computed β̂'s</td></tr>
+    <tr><td class="mono">eᵢ = Yᵢ − Ŷᵢ</td><td>residual</td><td>vertical distance from the point to the fitted line — the observable stand-in for εᵢ</td></tr>
+  </table></div>
+</section>
+
+<section class="section" id="s-ols">
+  <div class="sec-head"><span class="sec-num">3.6</span><h2>Ordinary Least Squares: finding the best line</h2></div>
+  <p>Infinitely many lines could go through the cloud. OLS picks the one that makes the <strong>Residual Sum of Squares (RSS)</strong> as small as possible:</p>
+  <div class="formula">$$ \min_{\hat\beta_0,\hat\beta_1}\; RSS=\sum_{i=1}^{n} e_i^2=\sum_{i=1}^{n}\big(Y_i-\hat\beta_0-\hat\beta_1X_i\big)^2 $$</div>
+  <div class="callout plain"><div class="c-title">in plain words</div><p>Draw each residual as a little square (side = the miss). OLS chooses the line whose squares have the smallest total area. Squaring makes all misses positive and punishes big misses much more than small ones.</p></div>
+  <div class="widget" id="w-ols">
+    <div class="w-head"><span class="w-badge">play</span><span class="w-title">Be the least-squares algorithm</span></div>
+    <div class="w-body">
+      <p class="hint">Move the intercept and slope to make the red squares as small as possible. Can you beat OLS?</p>
+      <div class="slider"><label for="o-b0">intercept β̂₀</label><input type="range" id="o-b0" min="30" max="80" step="0.1" value="45"><output id="o-b0o"></output></div>
+      <div class="slider"><label for="o-b1">slope β̂₁</label><input type="range" id="o-b1" min="0" max="7" step="0.01" value="5"><output id="o-b1o"></output></div>
+      <div class="controls"><button class="btn primary" id="o-fit">snap to OLS</button><label class="small"><input type="checkbox" id="o-sq" checked> show squares</label></div>
+      <svg id="o-svg"></svg>
+      <div class="readout" id="o-stats"></div>
+    </div>
+  </div>
+
+  <h3>Deriving the formulas (the handout's three steps)</h3>
+  <ol class="steps">
+    <li><strong>First-order conditions.</strong> At the minimum, the slope of RSS in every direction is zero. Take partial derivatives and set them to 0:
+      $$ \frac{\partial RSS}{\partial\hat\beta_0}=-2\sum(Y_i-\hat\beta_0-\hat\beta_1X_i)=0\;\Rightarrow\;\sum Y_i=n\hat\beta_0+\hat\beta_1\sum X_i $$
+      $$ \frac{\partial RSS}{\partial\hat\beta_1}=-2\sum X_i(Y_i-\hat\beta_0-\hat\beta_1X_i)=0\;\Rightarrow\;\sum X_iY_i=\hat\beta_0\sum X_i+\hat\beta_1\sum X_i^2 $$
+      These two equations are called the <strong>normal equations</strong>.</li>
+    <li><strong>Solve for the slope:</strong>
+      $$ \hat\beta_1=\frac{\sum (X_i-\bar X)(Y_i-\bar Y)}{\sum (X_i-\bar X)^2}=\frac{\text{Cov}(X,Y)}{\text{Var}(X)}=r\,\frac{s_Y}{s_X} $$</li>
+    <li><strong>Then the intercept:</strong> the OLS line always passes through the point of means \((\bar X,\bar Y)\), so
+      $$ \hat\beta_0=\bar Y-\hat\beta_1\bar X $$</li>
+  </ol>
+  <p>With the numbers from section 3.2: \(\sum(X-\bar X)(Y-\bar Y)=292.5\) and \(\sum(X-\bar X)^2=82.5\), so \(\hat\beta_1=292.5/82.5=3.5455\) and \(\hat\beta_0=78.7-3.5455\times6.5=55.6545\).</p>
+  <div class="callout note"><div class="c-title">Link to the slope–correlation formula</div><p>\(\hat\beta_1 = r\,s_Y/s_X\) shows that the slope is the correlation re-expressed in the units of the data. Same sign as r always. Check it in R: <code>cor(hours, scores) * sd(scores) / sd(hours)</code> gives 3.5455, exactly the <code>lm</code> slope.</p></div>
+</section>
+
+<section class="section" id="s-assume">
+  <div class="sec-head"><span class="sec-num">3.7</span><h2>Assumptions: when is OLS "the best"? (Gauss–Markov)</h2></div>
+  <div class="grid2">
+    <div class="card"><span class="tag">1 · linearity</span><h4>Linear in the parameters</h4><p>The true relationship is Y = β₀ + β₁X + ε.</p></div>
+    <div class="card"><span class="tag">2 · strict exogeneity</span><h4>E(ε | X) = 0</h4><p>Errors average zero at every X — nothing systematic is left out that's related to X.</p></div>
+    <div class="card"><span class="tag">3 · homoscedasticity</span><h4>Var(ε | X) = σ²</h4><p>Same error spread for all X (no funnel).</p></div>
+    <div class="card"><span class="tag">4 · no autocorrelation</span><h4>Cov(εᵢ, εⱼ) = 0</h4><p>One error tells you nothing about another (important for data over time).</p></div>
+    <div class="card violet"><span class="tag">5 · normality (for tests)</span><h4>ε ~ N(0, σ²)</h4><p>Needed for exact t- and F-tests in small samples.</p></div>
+    <div class="card teal"><span class="tag">the result</span><h4>BLUE</h4><p>Under 1–4, OLS is the <strong>B</strong>est <strong>L</strong>inear <strong>U</strong>nbiased <strong>E</strong>stimator: no other linear unbiased method has smaller variance.</p></div>
+  </div>
+</section>
+
+<section class="section" id="s-lm">
+  <div class="sec-head"><span class="sec-num">3.8</span><h2>Fitting in R and reading <code>summary(model)</code></h2></div>
+  <div class="code" data-label="Linear_Regression_and_OLS_in_R.pdf"><pre class="r">
+hours &lt;- c(2, 4, 6, 8, 10, 3, 5, 7, 9, 11)
+scores &lt;- c(60, 70, 80, 85, 90, 65, 75, 82, 88, 92)
+model &lt;- lm(scores ~ hours)
+summary(model)
+</pre><div class="out" data-label="R output (real run) — click highlights"><pre>
+Call:
+lm(formula = scores ~ hours)
+
+<span class="ann" data-n="&lt;b&gt;Residuals&lt;/b&gt;: the 10 misses summarised. Median close to 0 and symmetric Min/Max (−2.7 vs +3.1) — good signs.">Residuals:
+   Min     1Q Median     3Q    Max
+-2.745 -1.245  0.300  1.391  3.073</span>
+
+Coefficients:
+            Estimate Std. Error t value Pr(>|t|)
+<span class="ann" data-n="&lt;b&gt;Intercept β̂₀ = 55.65&lt;/b&gt;: predicted score of a student who studies 0 hours. Here X = 0 is just outside the data (2–11 h), so it's a reasonable but slightly extrapolated baseline.">(Intercept)  55.6545     1.5903   34.99 4.86e-10 ***</span>
+<span class="ann" data-n="&lt;b&gt;Slope β̂₁ = 3.545&lt;/b&gt;: each extra hour of study raises the expected score by about 3.5 points. &lt;b&gt;t = 3.5455 / 0.2238 = 15.84&lt;/b&gt;, df = 8, &lt;b&gt;p = 2.52×10⁻⁷&lt;/b&gt; → reject H₀: β₁ = 0. Notice: t and p are &lt;i&gt;identical&lt;/i&gt; to cor.test — in simple regression, testing the slope and testing r are the same test.">hours         3.5455     0.2238   15.84 2.52e-07 ***</span>
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+<span class="ann" data-n="&lt;b&gt;Residual standard error = 2.033&lt;/b&gt; = √(RSS/(n−2)) = √(33.05/8). It estimates σ, the standard deviation of the errors: a typical student's score is about 2 points away from the line.">Residual standard error: 2.033 on 8 degrees of freedom</span>
+<span class="ann" data-n="&lt;b&gt;R² = 0.9691&lt;/b&gt; = r² = 0.9844². 96.9% of the variation in scores is explained by hours; 3.1% is left unexplained. &lt;b&gt;Adjusted R² = 0.9652&lt;/b&gt; = 1 − (1 − R²)(n − 1)/(n − 2), a small penalty for using a predictor.">Multiple R-squared:  0.9691,	Adjusted R-squared:  0.9652</span>
+<span class="ann" data-n="&lt;b&gt;F = 251&lt;/b&gt; tests the whole model. With a single predictor F = t² = 15.84² = 251, and the p-value is the same 2.52×10⁻⁷.">F-statistic:   251 on 1 and 8 DF,  p-value: 2.521e-07</span></pre></div></div>
+  <div class="callout warn"><div class="c-title">Heads-up — the handout's printed output is off</div>
+    <p>The PDF shows <code>Intercept 54.7682</code>, <code>hours 3.5364</code>, residual standard error <code>1.674</code>, and a prediction of <code>77.75</code> for 6.5 hours. Running the exact same code in R gives <strong>55.6545</strong>, <strong>3.5455</strong>, <strong>2.033</strong> and <strong>78.70</strong> (you can check with the formulas in 3.6 or the ▶ run button). The r, t, p-value, R² and F in the handout are correct. This page uses the real R output throughout — if an exam asks you to interpret the handout's numbers, the <em>interpretation</em> is the same.</p></div>
+
+  <h3>Where R² comes from: splitting the variation</h3>
+  <div class="formula">$$ \underbrace{\sum (Y_i-\bar Y)^2}_{TSS\;=\;1070.1}=\underbrace{\sum (\hat Y_i-\bar Y)^2}_{ESS\;=\;1037.05}+\underbrace{\sum (Y_i-\hat Y_i)^2}_{RSS\;=\;33.05}\qquad R^2=\frac{ESS}{TSS}=1-\frac{RSS}{TSS}=0.9691 $$<span class="f-cap">TSS total · ESS explained by the line · RSS left over (residual)</span></div>
+  <div class="code" data-label="the same split, from anova(model)"><pre class="r">
+anova(model)
+</pre><div class="out"><pre>Analysis of Variance Table
+
+Response: scores
+          Df  Sum Sq Mean Sq F value    Pr(>F)
+hours      1 1037.05 1037.05  250.99 2.521e-07 ***
+Residuals  8   33.05    4.13</pre></div></div>
+  <p>Mean Sq of residuals = 33.05 / 8 = 4.13 = 2.033² (the residual standard error squared). F = 1037.05 / 4.13 = 251.</p>
+</section>
+
+<section class="section" id="s-diag">
+  <div class="sec-head"><span class="sec-num">3.9</span><h2>Diagnostic plots: <code>plot(model)</code></h2></div>
+  <div class="code" data-label="2x2 diagnostic plots"><pre class="r">
+plot(hours, scores, main="Scatter Plot &amp; OLS Line (Hours vs Scores)",
+     xlab="Hours Studied", ylab="Exam Scores", pch=19, col="black")
+abline(model, col="red", lwd=2)
+grid()
+
+par(mfrow=c(2, 2))   # 2 x 2 grid of plots
+plot(model)
+par(mfrow=c(1, 1))   # reset layout
+</pre></div>
+  <figure class="figure"><img src="assets/img/l3-diagnostics.png" alt="Four diagnostic plots for the hours-scores model" loading="lazy"><figcaption>The four standard checks. With only 10 points, don't over-read small wiggles.</figcaption></figure>
+  <div class="grid2">
+    <div class="card"><span class="tag">1 · Residuals vs Fitted</span><h4>Checks linearity</h4><p>Points should bounce randomly around 0 with no curve. Here there is a clear <strong>arch</strong>: residuals are negative at both ends and positive in the middle. Scores level off for the hardest-studying students (diminishing returns), so a straight line is a simplification — despite R² = 0.97!</p></div>
+    <div class="card"><span class="tag">2 · Normal Q-Q</span><h4>Checks normality of errors</h4><p>Standardised residuals should follow the dashed diagonal. They do, roughly.</p></div>
+    <div class="card"><span class="tag">3 · Scale-Location</span><h4>Checks equal variance</h4><p>√|standardised residuals| vs fitted. The red line should be roughly flat.</p></div>
+    <div class="card"><span class="tag">4 · Residuals vs Leverage</span><h4>Finds influential points</h4><p>Points with high leverage (unusual X) and big residuals can steer the line. Watch for points beyond the dashed Cook's distance lines (0.5 or 1). Students 1 and 10 (2 h and 11 h, the extremes) have the highest leverage and sit near the 0.5 line, but none crosses it.</p></div>
+  </div>
+</section>
+
+<section class="section" id="s-pred">
+  <div class="sec-head"><span class="sec-num">3.10</span><h2>Prediction: confidence vs prediction intervals</h2></div>
+  <div class="code" data-label="predict() for a student studying 6.5 hours"><pre class="r">
+new_student &lt;- data.frame(hours = 6.5)
+predict(model, newdata = new_student, interval = "confidence", level = 0.95)
+predict(model, newdata = new_student, interval = "prediction", level = 0.95)
+</pre><div class="out"><pre>   fit      lwr      upr
+1 78.7 77.21772 80.18228
+   fit      lwr      upr
+1 78.7 73.78383 83.61617</pre></div></div>
+  <p><code>newdata</code> must be a data frame whose column name matches the predictor in the model (<code>hours</code>). Point prediction: 55.6545 + 3.5455 × 6.5 = <strong>78.7</strong> (6.5 is the mean of hours, so the line gives exactly the mean score).</p>
+  <div class="grid2">
+    <div class="card blue"><span class="tag">interval = "confidence"</span><h4>Where is the <em>average</em> score of all students who study 6.5 h?</h4><p>77.2 to 80.2. Narrow: averages are predictable.</p></div>
+    <div class="card amber"><span class="tag">interval = "prediction"</span><h4>Where will <em>one particular</em> student's score fall?</h4><p>73.8 to 83.6. Wider: it adds the individual's own random error.</p></div>
+  </div>
+  <div class="formula">$$ \hat y_0\pm t_{n-2}\;s\sqrt{\tfrac1n+\tfrac{(x_0-\bar x)^2}{S_{xx}}}\qquad\text{vs}\qquad \hat y_0\pm t_{n-2}\;s\sqrt{1+\tfrac1n+\tfrac{(x_0-\bar x)^2}{S_{xx}}} $$<span class="f-cap">confidence interval (left) · prediction interval (right): the extra "1+" is the new student's own error</span></div>
+  <div class="widget" id="w-band">
+    <div class="w-head"><span class="w-badge">play</span><span class="w-title">Slide x₀ and watch both intervals</span></div>
+    <div class="w-body">
+      <div class="slider"><label for="b-x">hours x₀</label><input type="range" id="b-x" min="0" max="16" step="0.1" value="6.5"><output id="b-xo"></output></div>
+      <svg id="b-svg"></svg>
+      <div class="readout" id="b-stats"></div>
+      <div class="explain" id="b-exp"></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="s-vs">
+  <div class="sec-head"><span class="sec-num">3.11</span><h2>Correlation vs regression — side by side</h2></div>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Aspect</th><th>Correlation (r)</th><th>Linear regression (OLS)</th></tr>
+    <tr><td>Purpose</td><td>Strength &amp; direction of linear association</td><td>Equation that explains/predicts Y from X</td></tr>
+    <tr><td>Symmetry</td><td>Symmetric: cor(X,Y) = cor(Y,X)</td><td>Directional: Y on X ≠ X on Y</td></tr>
+    <tr><td>Units</td><td>None, always between −1 and +1</td><td>Slope in units of Y per unit of X (points per hour)</td></tr>
+    <tr><td>Key number</td><td>r = 0.984</td><td>β̂₁ = 3.55, R² = r² = 0.969</td></tr>
+    <tr><td>Test</td><td><code>cor.test</code>: t = 15.84, p = 2.5e-07</td><td>slope t-test: same t, same p (F = t²)</td></tr>
+    <tr><td>R functions</td><td class="mono">cor(x, y), cor.test(x, y)</td><td class="mono">lm(y ~ x), summary(), predict()</td></tr>
+  </table></div>
+</section>
+
+<section class="section" id="s-quiz">
+  <div class="sec-head"><span class="sec-num">✓</span><h2>Check yourself</h2></div>
+  <div class="quiz" data-id="l3">
+    <div class="quiz-top"><h3>Lecture 3 quiz</h3><span class="quiz-score"></span></div>
+    <div class="q" data-a="2"><div class="q-text">r = −0.45 between screen time and sleep hours. Which description fits?</div>
+      <div class="q-opts"><button class="q-opt">Strong negative</button><button class="q-opt">Weak positive</button><button class="q-opt">Moderate negative</button><button class="q-opt">No relationship</button></div>
+      <div class="q-fb">|r| = 0.45 is between 0.3 and 0.7 → moderate; the minus sign → negative.</div></div>
+    <div class="q" data-a="0"><div class="q-text">A scatter plot shows a perfect U-shape, yet r ≈ 0. Why?</div>
+      <div class="q-opts"><button class="q-opt">r only measures <em>linear</em> relationships</button><button class="q-opt">There must be an outlier</button><button class="q-opt">The sample is too small</button><button class="q-opt">Pearson can't be negative</button></div>
+      <div class="q-fb">Up on one side and down on the other cancel out in the sum of products.</div></div>
+    <div class="q" data-a="3"><div class="q-text">r = 0.6 with n = 12. What is the t statistic?</div>
+      <div class="q-opts"><button class="q-opt">1.90</button><button class="q-opt">0.60</button><button class="q-opt">3.46</button><button class="q-opt">2.37</button></div>
+      <div class="q-fb">t = 0.6·√10 / √(1 − 0.36) = 1.897 / 0.8 = 2.37, with df = 10.</div></div>
+    <div class="q" data-a="1"><div class="q-text">The OLS line always passes through…</div>
+      <div class="q-opts"><button class="q-opt">the origin (0, 0)</button><button class="q-opt">the point of means (x̄, ȳ)</button><button class="q-opt">the first and last data points</button><button class="q-opt">the point with the largest residual</button></div>
+      <div class="q-fb">That's why β̂₀ = ȳ − β̂₁x̄.</div></div>
+    <div class="q" data-a="2"><div class="q-text">In simple regression R² = 0.9691. What is |r|?</div>
+      <div class="q-opts"><button class="q-opt">0.9691</button><button class="q-opt">0.939</button><button class="q-opt">0.984</button><button class="q-opt">Can't be known</button></div>
+      <div class="q-fb">R² = r² in simple regression → |r| = √0.9691 = 0.9844. (The sign comes from the slope.)</div></div>
+    <div class="q" data-a="0"><div class="q-text">Which interval is wider at the same x₀?</div>
+      <div class="q-opts"><button class="q-opt">The prediction interval</button><button class="q-opt">The confidence interval</button><button class="q-opt">They are equal</button><button class="q-opt">Depends on the sign of the slope</button></div>
+      <div class="q-fb">The prediction interval includes the individual's own error ("1 +" under the square root).</div></div>
+    <div class="q" data-a="3"><div class="q-text">"Under the Gauss–Markov assumptions OLS is BLUE." What does the B stand for and mean?</div>
+      <div class="q-opts"><button class="q-opt">Biased — it is slightly off on purpose</button><button class="q-opt">Bayesian — it uses a prior</button><button class="q-opt">Basic — it is the simplest method</button><button class="q-opt">Best — smallest variance among all linear unbiased estimators</button></div>
+      <div class="q-fb">Best Linear Unbiased Estimator. Normality is not needed for BLUE; it's needed for exact t/F tests.</div></div>
+    <div class="q" data-a="1"><div class="q-text">Slope estimate 3.5455, standard error 0.2238. The t value is…</div>
+      <div class="q-opts"><button class="q-opt">3.77</button><button class="q-opt">15.84</button><button class="q-opt">0.063</button><button class="q-opt">0.79</button></div>
+      <div class="q-fb">t = estimate / standard error = 3.5455 / 0.2238 ≈ 15.84.</div></div>
+    <div class="controls"><button class="btn ghost quiz-reset">↺ try again</button></div>
+  </div>
+</section>
+
+<section class="section" id="s-sum">
+  <div class="sec-head"><span class="sec-num">★</span><h2>Summary</h2></div>
+  <div class="takeaways"><ul>
+    <li>r ∈ [−1, 1] measures linear association; |r| ≥ 0.7 strong, 0.3–0.7 moderate, &lt; 0.3 weak. Always plot: curves, outliers, and causation are its blind spots.</li>
+    <li>Test H₀: ρ = 0 with \(t = r\sqrt{n-2}/\sqrt{1-r^2}\), df = n − 2, or <code>cor.test()</code>.</li>
+    <li>Regression model Y = β₀ + β₁X + ε. OLS minimises RSS → \(\hat\beta_1 = S_{xy}/S_{xx} = r s_Y/s_X\), \(\hat\beta_0 = \bar Y - \hat\beta_1\bar X\).</li>
+    <li>Gauss–Markov (linearity, exogeneity, equal variance, no autocorrelation) → OLS is BLUE; normality → exact tests.</li>
+    <li><code>summary(lm)</code>: estimate, SE, t = est/SE, p-value; residual SE estimates σ; R² = 1 − RSS/TSS (= r² here); F = t² here.</li>
+    <li><code>predict(…, interval = "confidence")</code> for the mean response, <code>"prediction"</code> for one new case (wider).</li>
+  </ul></div>
+</section>
+
+<div id="lec-nav"></div>
+</main>
+</div>
+
+<script>
+document.addEventListener('ds:ready', () => {
+  const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+  const P = window.DS_PLOT;
+  const hx = [2, 4, 6, 8, 10, 3, 5, 7, 9, 11], hy = [60, 70, 80, 85, 90, 65, 75, 82, 88, 92];
+
+  /* ---------- draggable scatter ---------- */
+  (function () {
+    const svg = $('#drag-svg');
+    let pts = [];
+    const presets = {
+      strong: () => Array.from({ length: 14 }, (_, i) => [1 + i * 0.65, 1.2 + i * 0.6 + (Math.random() - .5) * 1.4]),
+      neg: () => Array.from({ length: 16 }, (_, i) => [0.8 + i * 0.55, 8 - i * 0.3 + (Math.random() - .5) * 4]),
+      none: () => Array.from({ length: 18 }, () => [0.8 + Math.random() * 8.4, 0.8 + Math.random() * 8.4]),
+      curve: () => Array.from({ length: 15 }, (_, i) => { const x = 1 + i * 8 / 14; return [x, 1 + 0.42 * (x - 5) ** 2]; }),
+      outlier: () => pts.concat([[9.4, 9.4]])
+    };
+    let p;
+    function draw() {
+      p = P(svg, { w: 600, h: 330, x: [0, 10], y: [0, 10], xlab: 'x', ylab: 'y' });
+      if (pts.length >= 2) {
+        const x = pts.map(q => q[0]), y = pts.map(q => q[1]);
+        if (S.sd(x) > 0) { const o = S.ols(x, y); p.el('line', { x1: p.X(0), y1: p.Y(o.b0), x2: p.X(10), y2: p.Y(o.b0 + o.b1 * 10), class: 'ln-red', style: 'stroke-opacity:.6' }); }
+      }
+      pts.forEach((q, i) => {
+        const c = p.el('circle', { cx: p.X(q[0]), cy: p.Y(q[1]), r: 7, class: 'pt drag', 'data-i': i });
+        c.addEventListener('pointerdown', ev => { ev.stopPropagation(); drag = i; svg.setPointerCapture(ev.pointerId); });
+        c.addEventListener('dblclick', ev => { ev.stopPropagation(); pts.splice(i, 1); draw(); });
+      });
+      stats();
+    }
+    let drag = -1;
+    svg.addEventListener('pointerdown', ev => { const d = p.pointer(ev); if (d.x < 0 || d.x > 10 || d.y < 0 || d.y > 10) return; pts.push([d.x, d.y]); draw(); });
+    svg.addEventListener('pointermove', ev => { if (drag < 0) return; const d = p.pointer(ev); pts[drag] = [Math.max(0, Math.min(10, d.x)), Math.max(0, Math.min(10, d.y))]; draw(); });
+    svg.addEventListener('pointerup', () => (drag = -1));
+    function stats() {
+      const n = pts.length;
+      if (n < 3) { $('#drag-stats').innerHTML = `<div class="stat"><div class="k">n</div><div class="v">${n}</div></div>`; $('#drag-exp').textContent = 'Add at least 3 points.'; return; }
+      const x = pts.map(q => q[0]), y = pts.map(q => q[1]);
+      const r = S.cor(x, y), rs = S.spearman(x, y);
+      const t = r * Math.sqrt(n - 2) / Math.sqrt(Math.max(1e-12, 1 - r * r)), pv = S.p2(t, n - 2);
+      $('#drag-stats').innerHTML = `<div class="stat"><div class="k">n</div><div class="v">${n}</div></div><div class="stat"><div class="k">Pearson r</div><div class="v ${Math.abs(r) >= .7 ? 'good' : Math.abs(r) >= .3 ? 'mid' : 'bad'}">${isFinite(r) ? r.toFixed(3) : '—'}</div></div><div class="stat"><div class="k">Spearman</div><div class="v">${isFinite(rs) ? rs.toFixed(3) : '—'}</div></div><div class="stat"><div class="k">p-value</div><div class="v">${isFinite(pv) ? S.pfmt(pv) : '—'}</div></div>`;
+      $('#drag-exp').innerHTML = isFinite(r) ? `A <b>${S.strength(r)} ${r >= 0 ? 'positive' : 'negative'}</b> linear relationship. ${pv < 0.05 ? 'Significant at 5% (p &lt; 0.05).' : 'Not significant at 5% — could easily be chance with this many points.'}` : 'All x values are equal — r is undefined.';
+    }
+    $$('#w-drag [data-pre]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.pre; pts = k === 'clear' ? [] : presets[k](); draw(); }));
+    pts = presets.strong(); draw();
+  })();
+
+  /* ---------- step-by-step r ---------- */
+  (function () {
+    const mx = S.mean(hx), my = S.mean(hy);
+    const dx = hx.map(v => v - mx), dy = hy.map(v => v - my);
+    const sxy = S.sum(dx.map((v, i) => v * dy[i])), sxx = S.sum(dx.map(v => v * v)), syy = S.sum(dy.map(v => v * v));
+    const steps = [
+      { cols: ['x', 'y'], txt: 'The raw data: 10 students. x = hours studied, y = exam score.' },
+      { cols: ['x', 'y'], means: true, txt: `<b>Step 1 — the means.</b> x̄ = 65 / 10 = <b>${mx}</b> hours, ȳ = 787 / 10 = <b>${my}</b> points.` },
+      { cols: ['x', 'y', 'dx', 'dy'], txt: '<b>Step 2 — deviations.</b> Subtract the mean from every value. Negative = below average, positive = above.' },
+      { cols: ['x', 'y', 'dx', 'dy', 'dxdy'], txt: '<b>Step 3 — multiply the deviations pairwise.</b> All products are positive except one tiny negative (−0.65, student 3, who is just below average in hours but just above in score). Students below average in hours are below average in score, and vice versa.' },
+      { cols: ['x', 'y', 'dx', 'dy', 'dxdy', 'dx2', 'dy2'], sums: true, txt: `<b>Step 4 — sum.</b> Σ(x−x̄)(y−ȳ) = <b>${sxy.toFixed(1)}</b>. We also need Σ(x−x̄)² = ${sxx.toFixed(1)} and Σ(y−ȳ)² = ${syy.toFixed(1)} for the bottom of the formula.` },
+      { cols: ['x', 'y', 'dx', 'dy', 'dxdy', 'dx2', 'dy2'], sums: true, txt: `<b>Step 5 — divide.</b> r = ${sxy.toFixed(1)} / √(${sxx.toFixed(1)} × ${syy.toFixed(1)}) = ${sxy.toFixed(1)} / ${Math.sqrt(sxx * syy).toFixed(2)} = <b>${(sxy / Math.sqrt(sxx * syy)).toFixed(4)}</b> ✓ matches <code>cor(hours, scores)</code>.` }
+    ];
+    const H = { x: 'x (hours)', y: 'y (score)', dx: 'x − x̄', dy: 'y − ȳ', dxdy: '(x−x̄)(y−ȳ)', dx2: '(x−x̄)²', dy2: '(y−ȳ)²' };
+    const val = (c, i) => ({ x: hx[i], y: hy[i], dx: dx[i], dy: dy[i], dxdy: dx[i] * dy[i], dx2: dx[i] ** 2, dy2: dy[i] ** 2 })[c];
+    const tot = c => ({ x: S.sum(hx), y: S.sum(hy), dx: 0, dy: 0, dxdy: sxy, dx2: sxx, dy2: syy })[c];
+    let k = 0;
+    function draw() {
+      const s = steps[k];
+      $('#st-lab').textContent = `step ${k} of ${steps.length - 1}`;
+      $('#st-prev').disabled = k === 0; $('#st-next').disabled = k === steps.length - 1;
+      let h = '<tr><th>#</th>' + s.cols.map(c => `<th class="mono">${H[c]}</th>`).join('') + '</tr>';
+      for (let i = 0; i < 10; i++) h += `<tr><td class="num">${i + 1}</td>` + s.cols.map(c => `<td class="num" style="${c === 'dxdy' ? 'color:var(--blue);font-weight:700' : ''}">${+val(c, i).toFixed(2)}</td>`).join('') + '</tr>';
+      if (s.means) h += '<tr class="best"><td>mean</td><td class="num">' + mx + '</td><td class="num">' + my + '</td></tr>';
+      if (s.sums) h += '<tr class="best"><td>Σ</td>' + s.cols.map(c => `<td class="num"><b>${+tot(c).toFixed(2)}</b></td>`).join('') + '</tr>';
+      $('#st-table').innerHTML = h;
+      $('#st-exp').innerHTML = s.txt;
+    }
+    $('#st-prev').addEventListener('click', () => { if (k > 0) { k--; draw(); } });
+    $('#st-next').addEventListener('click', () => { if (k < steps.length - 1) { k++; draw(); } });
+    draw();
+  })();
+
+  /* ---------- t-test calculator ---------- */
+  (function () {
+    const AL = [0.01, 0.05, 0.10];
+    function draw() {
+      const r = +$('#t-r').value, n = +$('#t-n').value, a = AL[+$('#t-a').value];
+      $('#t-ro').textContent = r.toFixed(2); $('#t-no').textContent = n; $('#t-ao').textContent = a;
+      const df = n - 2, t = r * Math.sqrt(df) / Math.sqrt(1 - r * r), pv = S.p2(t, df), crit = S.qt(1 - a / 2, df);
+      const rej = Math.abs(t) > crit;
+      $('#t-stats').innerHTML = `<div class="stat"><div class="k">t</div><div class="v">${t.toFixed(3)}</div></div><div class="stat"><div class="k">df</div><div class="v">${df}</div></div><div class="stat"><div class="k">critical t*</div><div class="v">±${crit.toFixed(3)}</div></div><div class="stat"><div class="k">p-value</div><div class="v ${rej ? 'good' : 'bad'}">${S.pfmt(pv)}</div></div>`;
+      const lim = Math.max(5, Math.min(30, Math.abs(t) + 1.5));
+      const top = S.dt(0, df) * 1.15;
+      const p = P($('#t-svg'), { w: 600, h: 240, x: [-lim, lim], y: [0, top], xlab: `t-distribution with df = ${df}`, m: { l: 20 }, yt: 2, yfmt: () => '' });
+      const curve = (lo, hi) => { let d = `M${p.X(lo)},${p.Y(0)}`; const N = 120; for (let i = 0; i <= N; i++) { const x = lo + (hi - lo) * i / N; d += ` L${p.X(x)},${p.Y(S.dt(x, df))}`; } return d + ` L${p.X(hi)},${p.Y(0)} Z`; };
+      p.el('path', { d: curve(-lim, -crit), style: 'fill:var(--red);fill-opacity:.25' });
+      p.el('path', { d: curve(crit, lim), style: 'fill:var(--red);fill-opacity:.25' });
+      p.el('path', { d: curve(-lim, lim), class: 'ln', style: 'fill:none' });
+      const tx = Math.max(-lim, Math.min(lim, t));
+      p.el('line', { x1: p.X(tx), x2: p.X(tx), y1: p.Y(0), y2: p.Y(top * .95), class: 'ln-blue', style: 'stroke-width:3' });
+      const lab = p.el('text', { x: p.X(tx) + (tx > 0 ? -6 : 6), y: p.Y(top * .88), 'text-anchor': tx > 0 ? 'end' : 'start', class: 'lbl-txt', style: 'fill:var(--blue)' }); lab.textContent = 't = ' + t.toFixed(2);
+      $('#t-exp').innerHTML = `Red tails = <b>rejection region</b> (total area α = ${a}). ` + (rej ? `|t| = ${Math.abs(t).toFixed(2)} &gt; ${crit.toFixed(3)} and p = ${S.pfmt(pv)} &lt; ${a} → <b>reject H₀</b>: significant correlation.` : `|t| = ${Math.abs(t).toFixed(2)} ≤ ${crit.toFixed(3)} and p = ${S.pfmt(pv)} ≥ ${a} → <b>do not reject H₀</b>: this r could be chance.`) + ' Try a small n with a large r, then a large n with a small r: significance depends on both.';
+    }
+    ['#t-r', '#t-n', '#t-a'].forEach(id => $(id).addEventListener('input', draw)); draw();
+  })();
+
+  /* ---------- OLS game ---------- */
+  (function () {
+    const o = S.ols(hx, hy);
+    function draw() {
+      const b0 = +$('#o-b0').value, b1 = +$('#o-b1').value;
+      $('#o-b0o').textContent = b0.toFixed(2); $('#o-b1o').textContent = b1.toFixed(3);
+      const p = P($('#o-svg'), { w: 600, h: 330, x: [0, 12.5], y: [50, 100], xlab: 'hours', ylab: 'score' });
+      const pxPerY = Math.abs(p.Y(0) - p.Y(1)), pxPerX = Math.abs(p.X(1) - p.X(0));
+      let rss = 0;
+      hx.forEach((x, i) => {
+        const f = b0 + b1 * x, e = hy[i] - f; rss += e * e;
+        if ($('#o-sq').checked) { const side = Math.abs(e) * pxPerY; p.el('rect', { x: p.X(x), y: Math.min(p.Y(hy[i]), p.Y(f)), width: side, height: side, class: 'sq' }); }
+        p.el('line', { x1: p.X(x), x2: p.X(x), y1: p.Y(hy[i]), y2: p.Y(f), class: 'resid' });
+      });
+      p.el('line', { x1: p.X(0), y1: p.Y(b0), x2: p.X(12.5), y2: p.Y(b0 + b1 * 12.5), class: 'ln' });
+      hx.forEach((x, i) => p.el('circle', { cx: p.X(x), cy: p.Y(hy[i]), r: 5, class: 'pt' }));
+      p.el('circle', { cx: p.X(o.mx), cy: p.Y(S.mean(hy)), r: 5, style: 'fill:none;stroke:var(--green);stroke-width:2' });
+      const best = Math.abs(rss - o.rss) < 0.05;
+      $('#o-stats').innerHTML = `<div class="stat"><div class="k">your RSS</div><div class="v ${best ? 'good' : rss < 60 ? 'mid' : 'bad'}">${rss.toFixed(2)}</div></div><div class="stat"><div class="k">OLS minimum</div><div class="v">${o.rss.toFixed(2)}</div></div><div class="stat"><div class="k">OLS line</div><div class="v">ŷ = ${o.b0.toFixed(4)} + ${o.b1.toFixed(4)}x</div></div>` + (best ? '<div class="stat"><div class="k">status</div><div class="v good">you found it ✓</div></div>' : '');
+    }
+    $('#o-fit').addEventListener('click', () => { $('#o-b0').value = o.b0.toFixed(1); $('#o-b1').value = o.b1.toFixed(2); draw(); });
+    ['#o-b0', '#o-b1', '#o-sq'].forEach(id => $(id).addEventListener('input', draw)); draw();
+  })();
+
+  /* ---------- confidence / prediction bands ---------- */
+  (function () {
+    const o = S.ols(hx, hy), tc = S.qt(0.975, o.n - 2);
+    const se = (x, pred) => o.s * Math.sqrt((pred ? 1 : 0) + 1 / o.n + (x - o.mx) ** 2 / o.sxx);
+    function draw() {
+      const x0 = +$('#b-x').value; $('#b-xo').textContent = x0.toFixed(1);
+      const p = P($('#b-svg'), { w: 600, h: 320, x: [0, 16], y: [45, 125], xlab: 'hours', ylab: 'score' });
+      const band = pred => { let up = '', lo = ''; for (let i = 0; i <= 80; i++) { const x = 16 * i / 80, f = o.b0 + o.b1 * x, h = tc * se(x, pred); up += `${i ? 'L' : 'M'}${p.X(x)},${p.Y(f + h)} `; lo = `L${p.X(x)},${p.Y(f - h)} ` + lo; } return up + lo + 'Z'; };
+      p.el('path', { d: band(true), class: 'band2' });
+      p.el('path', { d: band(false), class: 'band' });
+      p.el('rect', { x: p.X(2), y: p.m.t, width: p.X(11) - p.X(2), height: p.h - p.m.t - p.m.b, style: 'fill:none;stroke:var(--rule2);stroke-dasharray:3 3' });
+      p.el('line', { x1: p.X(0), y1: p.Y(o.b0), x2: p.X(16), y2: p.Y(o.b0 + o.b1 * 16), class: 'ln-red' });
+      hx.forEach((x, i) => p.el('circle', { cx: p.X(x), cy: p.Y(hy[i]), r: 4.5, class: 'pt' }));
+      const f = o.b0 + o.b1 * x0, ci = tc * se(x0, false), pi = tc * se(x0, true);
+      p.el('line', { x1: p.X(x0), x2: p.X(x0), y1: p.Y(f - pi), y2: p.Y(f + pi), style: 'stroke:#c98a12;stroke-width:6;stroke-opacity:.7' });
+      p.el('line', { x1: p.X(x0), x2: p.X(x0), y1: p.Y(f - ci), y2: p.Y(f + ci), style: 'stroke:var(--blue);stroke-width:6' });
+      p.el('circle', { cx: p.X(x0), cy: p.Y(f), r: 5, style: 'fill:var(--red)' });
+      $('#b-stats').innerHTML = `<div class="stat"><div class="k">fit</div><div class="v">${f.toFixed(2)}</div></div><div class="stat"><div class="k">95% confidence</div><div class="v" style="color:var(--blue)">${(f - ci).toFixed(2)} – ${(f + ci).toFixed(2)}</div></div><div class="stat"><div class="k">95% prediction</div><div class="v" style="color:#b07508">${(f - pi).toFixed(2)} – ${(f + pi).toFixed(2)}</div></div>`;
+      const outside = x0 < 2 || x0 > 11;
+      $('#b-exp').innerHTML = `Blue = confidence band (average score), yellow = prediction band (one student). Both are <b>narrowest at x̄ = 6.5</b> and widen as you move away, because the slope's uncertainty matters more far from the centre.` + (outside ? ` <b>x₀ = ${x0.toFixed(1)} is outside the observed range (2–11 h, dashed box)</b>: this is extrapolation — the line may not hold there (a score above 100 is impossible!).` : '');
+    }
+    $('#b-x').addEventListener('input', draw); draw();
+  })();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L2 · Regression Modeling — DS550</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@500;700&family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/data/homeprice.js"></script>
+<script src="assets/site.js"></script>
+<script>
+window.R_SNIPPETS = [
+  { label: 'load data', code: 'MyData = read.csv("Home Price.csv")\nhead(MyData, 4)\ndim(MyData)\nsummary(MyData[, 1:7])' },
+  { label: 'scatter', code: 'MyData = read.csv("Home Price.csv")\nplot(MyData$livingArea, MyData$price)' },
+  { label: 'correlation', code: 'MyData = read.csv("Home Price.csv")\nround(cor(MyData[, 1:7]), 2)\nround(cor(MyData[, 1:7], method = "spearman"), 2)' },
+  { label: 'fit1', code: 'MyData = read.csv("Home Price.csv")\nfit1 <- lm(price ~ ., data = MyData[, 1:7])\nsummary(fit1)' },
+  { label: 'fit2 + anova', code: 'MyData = read.csv("Home Price.csv")\nfit1 <- lm(price ~ ., data = MyData[, 1:7])\nfit2 <- lm(price ~ . - 1, data = MyData[, 1:7])\nanova(fit1, fit2)' },
+  { label: 'residual plots', code: 'MyData = read.csv("Home Price.csv")\nfit1 <- lm(price ~ ., data = MyData[, 1:7])\nplot(fit1$fitted, fit1$residual); abline(0, 0)\nqqnorm(fit1$residuals); qqline(fit1$residuals)\nshapiro.test(fit1$resid)' },
+  { label: 'install PerformanceAnalytics', code: '# slow the first time (downloads the package into the browser)\nwebr::install("PerformanceAnalytics")\nlibrary(PerformanceAnalytics)\nMyData = read.csv("Home Price.csv")\nchart.Correlation(MyData[, 1:7])' }
+];
+</script>
+</head>
+<body data-page="l2">
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="big-num">02</div>
+    <div>
+      <div class="kicker">Lecture 2 · regression modeling</div>
+      <h1>What makes a house <em>expensive</em>? Multiple regression on real data</h1>
+      <p class="lead">We load 1,728 real house sales, explore them, measure which variables move together (correlation), build a model that explains price from six house features at once (multiple regression), compare it with a model without an intercept, and finally check whether the model's assumptions hold (residual analysis).</p>
+      <div class="chips"><span class="chip">read.csv</span><span class="chip">summary</span><span class="chip">cor · pearson / spearman</span><span class="chip">chart.Correlation</span><span class="chip">lm(price ~ .)</span><span class="chip">anova</span><span class="chip">residuals</span><span class="chip">shapiro.test</span></div>
+      <div class="hero-meta"><span><b>Source:</b> Lec 2/Lec 2 modeling.R (Dr. Mohamed R. Abonazel)</span><span><b>Data:</b> Home Price.csv, cor_matrix.csv</span><span><b>Videos:</b> Lec 2 parts 1–2</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+<aside class="toc"></aside>
+<main class="content">
+
+<section class="section" id="s-idea">
+  <div class="sec-head"><span class="sec-num">2.1</span><h2>The idea of regression modeling</h2></div>
+  <p>A <strong>regression model</strong> is an equation that describes how one variable (the <strong>response</strong>, Y) depends on one or more other variables (the <strong>predictors</strong> or <strong>explanatory variables</strong>, X₁, X₂, …). In this lecture the response is the <em>price</em> of a house and the predictors are its age, land value, living area, and number of bedrooms, bathrooms and rooms.</p>
+  <div class="formula">$$ \text{price} = \beta_0 + \beta_1\,\text{age} + \beta_2\,\text{landValue} + \dots + \beta_6\,\text{rooms} + \varepsilon $$<span class="f-cap">β's = unknown numbers the data will estimate · ε = everything the model can't explain (random error)</span></div>
+  <div class="callout plain"><div class="c-title">in plain words</div>
+    <p>We want a recipe: "start from a base price, add so many dollars per square foot, subtract so many per year of age, …". Regression finds the numbers in that recipe that best match the 1,728 houses we have. We use the recipe for two things: <strong>explaining</strong> (which features matter, and by how much?) and <strong>predicting</strong> (what should <em>this</em> house cost?).</p></div>
+  <p>The workflow in the script is the workflow you'll use in almost every regression project:</p>
+  <ol class="steps">
+    <li><strong>Load and look</strong> at the data (<code>read.csv</code>, <code>head</code>, <code>summary</code>).</li>
+    <li><strong>Explore relationships</strong> with plots and correlations.</li>
+    <li><strong>Fit</strong> a model with <code>lm()</code> and read <code>summary()</code>.</li>
+    <li><strong>Compare</strong> alternative models (<code>anova()</code>).</li>
+    <li><strong>Check</strong> the assumptions using the residuals.</li>
+  </ol>
+</section>
+
+<section class="section" id="s-data">
+  <div class="sec-head"><span class="sec-num">2.2</span><h2>Loading and looking at the data</h2></div>
+  <div class="code" data-label="Lec 2 modeling.R — read the data"><pre class="r">
+MyData = read.csv("Home Price.csv" )
+head(MyData,4)
+names(MyData)
+</pre><div class="out"><pre>   price age landValue livingArea bedrooms bathrooms rooms         heating     fuel
+1 132500  42     50000        906        2       1.0     5        electric electric
+2 181115   0     22300       1953        3       2.5     6 hot water/steam      gas
+3 109000 133      7300       1944        4       1.0     8 hot water/steam      gas
+4 155000  13     18700       1944        3       1.5     5         hot air      gas
+  waterfront newConstruction centralAir
+1         No              No         No
+2         No              No         No
+3         No              No         No
+4         No              No         No
+ [1] "price"           "age"             "landValue"       "livingArea"
+ [5] "bedrooms"        "bathrooms"       "rooms"           "heating"
+ [9] "fuel"            "waterfront"      "newConstruction" "centralAir"</pre></div></div>
+  <ul>
+    <li><code>read.csv("Home Price.csv")</code> reads a comma-separated file into a <strong>data frame</strong> — R's table type, where each column is a variable and each row is one house. R looks for the file in the <strong>working directory</strong>; in RStudio use <em>Session → Set Working Directory → To Source File Location</em> so that the script and CSV are found together.</li>
+    <li><code>head(MyData, 4)</code> shows the first 4 rows. The output wraps because the table is wider than the console.</li>
+    <li><code>names()</code> lists the column names.</li>
+  </ul>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Column</th><th>Meaning</th><th>Type</th></tr>
+    <tr><td class="mono">price</td><td>sale price in dollars — <strong>the response Y</strong></td><td>number</td></tr>
+    <tr><td class="mono">age</td><td>age of the house in years (0 = brand new)</td><td>number</td></tr>
+    <tr><td class="mono">landValue</td><td>value of the land alone, in dollars</td><td>number</td></tr>
+    <tr><td class="mono">livingArea</td><td>living area in square feet</td><td>number</td></tr>
+    <tr><td class="mono">bedrooms · bathrooms · rooms</td><td>counts (bathrooms can be 1.5, 2.5 — a "half bath" has a toilet but no shower)</td><td>number</td></tr>
+    <tr><td class="mono">heating · fuel</td><td>heating system and fuel (e.g. "hot air", "gas")</td><td>text (category)</td></tr>
+    <tr><td class="mono">waterfront · newConstruction · centralAir</td><td>Yes / No features</td><td>text (category)</td></tr>
+  </table></div>
+  <p>The first 7 columns are numbers; the last 5 are text categories. That's why the script keeps writing <code>MyData[ ,1:7]</code> or <code>MyData[,(1:7)]</code> — "all rows, columns 1 to 7" (Lecture 1 indexing!). Correlation and the models in this lecture use only the numeric columns.</p>
+
+  <h3>summary(): five numbers + the mean, for every column</h3>
+  <div class="code" data-label="Lec 2 modeling.R"><pre class="r">
+summary(MyData)
+</pre><div class="out"><pre>     price             age           landValue        livingArea      bedrooms
+ Min.   :  5000   Min.   :  0.00   Min.   :   200   Min.   : 616   Min.   :1.000
+ 1st Qu.:145000   1st Qu.: 13.00   1st Qu.: 15100   1st Qu.:1300   1st Qu.:3.000
+ Median :189900   Median : 19.00   Median : 25000   Median :1634   Median :3.000
+ Mean   :211967   Mean   : 27.92   Mean   : 34557   Mean   :1755   Mean   :3.155
+ 3rd Qu.:259000   3rd Qu.: 34.00   3rd Qu.: 40200   3rd Qu.:2138   3rd Qu.:4.000
+ Max.   :775000   Max.   :225.00   Max.   :412600   Max.   :5228   Max.   :7.000
+   bathrooms       rooms             heating            fuel          waterfront
+ Min.   :0.0   Min.   : 2.000   Length   :1728   Length   :1728   Length   :1728
+ 1st Qu.:1.5   1st Qu.: 5.000   N.unique :   3   N.unique :   3   N.unique :   2
+ Median :2.0   Median : 7.000   N.blank  :   0   N.blank  :   0   N.blank  :   0
+ Mean   :1.9   Mean   : 7.042   Min.nchar:   7   Min.nchar:   3   Min.nchar:   2
+ 3rd Qu.:2.5   3rd Qu.: 8.250   Max.nchar:  15   Max.nchar:   8   Max.nchar:   3
+ Max.   :4.5   Max.   :12.000
+ (newConstruction and centralAir columns omitted)</pre></div></div>
+  <div class="grid2">
+    <div class="card blue"><span class="tag">numeric columns</span><h4>Min · Q1 · Median · Mean · Q3 · Max</h4><p><strong>1st Qu.</strong> (Q1): 25% of houses are below this value. <strong>Median</strong>: the middle house. <strong>3rd Qu.</strong>: 75% are below. The middle 50% of prices lie between $145,000 and $259,000.</p></div>
+    <div class="card amber"><span class="tag">a quick skewness check</span><h4>Mean &gt; Median ⇒ long right tail</h4><p>Price: mean $211,967 &gt; median $189,900. A few very expensive houses (max $775,000) pull the mean up. Same for age and landValue. Keep this in mind — it shows up again in the residuals.</p></div>
+  </div>
+  <div class="callout note"><div class="c-title">Note — R version differences</div><p>For text columns, R 4.6 (used here) prints <code>Length / N.unique / N.blank / nchar</code>. Older R versions print <code>Length / Class / Mode</code> instead. Both just tell you "this is text, 1,728 values". Nothing is wrong with your output if it looks different.</p></div>
+
+  <div class="widget" id="w-var">
+    <div class="w-head"><span class="w-badge">explore</span><span class="w-title">Variable explorer — the real 1,728 houses</span></div>
+    <div class="w-body">
+      <div class="controls" id="var-btns"></div>
+      <svg id="var-svg"></svg>
+      <div class="readout" id="var-stats"></div>
+      <div class="explain" id="var-exp"></div>
+    </div>
+  </div>
+
+  <h3>Getting one column: <code>$</code>, <code>attach()</code> and <code>sd()</code></h3>
+  <div class="code" data-label="Lec 2 modeling.R"><pre class="r">
+MyData$age          # prints all 1728 ages (long!)
+MyData$price
+attach(MyData)
+sd(age)
+plot(MyData$age, MyData$price)
+class(MyData)
+</pre><div class="out"><pre>   [1]  42   0 133  13   0  31  33  23  36   4 123   1  13 153   9  88   9   0  82  17  12
+  ... (1728 values) ...
+[1] 29.20999
+[1] "data.frame"</pre></div></div>
+  <ul>
+    <li><code>MyData$age</code> = "the column called age inside MyData". The dollar sign is how you reach into a data frame by name.</li>
+    <li><code>attach(MyData)</code> lets you type just <code>age</code> instead of <code>MyData$age</code>. Convenient, but risky: if you later create a variable called <code>age</code>, or attach a second dataset, R may silently use the wrong one. Most R users avoid <code>attach()</code> and write <code>MyData$age</code> or use <code>data = MyData</code> inside functions.</li>
+    <li><code>sd(age)</code> = <strong>standard deviation</strong> = typical distance of a house's age from the average age. Here ≈ 29 years.</li>
+  </ul>
+  <figure class="figure"><img src="assets/img/l2-age-vs-price.png" alt="Scatter plot of price against age for 1728 houses" loading="lazy"><figcaption><span class="hand">plot(MyData$age, MyData$price)</span> — each dot is a house. Most houses are under 50 years old; there is a weak downward drift (older → slightly cheaper) but a huge spread. Correlation will put a number on "weak".</figcaption></figure>
+</section>
+
+<section class="section" id="s-cor">
+  <div class="sec-head"><span class="sec-num">2.3</span><h2>Correlation matrix: which variables move together?</h2></div>
+  <p>The <strong>correlation coefficient</strong> r measures how strongly two variables follow a straight-line relationship. It goes from −1 (perfect downhill line) through 0 (no linear pattern) to +1 (perfect uphill line). Lecture 3 covers the formula in detail; here we use it to scan many pairs at once.</p>
+  <div class="code" data-label="Lec 2 modeling.R — correlation matrix"><pre class="r">
+cor_matrix = cor(MyData[,(1:7)])
+cor_matrix
+cor(MyData[,(1:7)], method=  "spearman")
+#write.csv(cor_matrix, "cor_matrix.csv")
+</pre><div class="out"><pre>                price         age  landValue livingArea  bedrooms  bathrooms       rooms
+price       1.0000000 -0.18879259  0.5812655  0.7123902 0.4003487  0.5972498  0.53117012
+age        -0.1887926  1.00000000 -0.0218179 -0.1742420 0.0271248 -0.3618973 -0.08226402
+landValue   0.5812655 -0.02181790  1.0000000  0.4234408 0.2024492  0.2974978  0.29886515
+livingArea  0.7123902 -0.17424195  0.4234408  1.0000000 0.6561957  0.7185637  0.73366584
+bedrooms    0.4003487  0.02712480  0.2024492  0.6561957 1.0000000  0.4580331  0.67186325
+bathrooms   0.5972498 -0.36189725  0.2974978  0.7185637 0.4580331  1.0000000  0.51758469
+rooms       0.5311701 -0.08226402  0.2988652  0.7336658 0.6718633  0.5175847  1.00000000</pre></div></div>
+  <p>How to read it: the cell in row <em>price</em>, column <em>livingArea</em> (0.71) is the correlation between price and living area. The matrix is <strong>symmetric</strong> (cor(A,B) = cor(B,A)) and the diagonal is always 1 (every variable correlates perfectly with itself). The commented-out <code>write.csv</code> line saves the matrix to <code>cor_matrix.csv</code> — that file is in your Lec 2 folder, ready to open in Excel.</p>
+
+  <div class="widget" id="w-heat">
+    <div class="w-head"><span class="w-badge">explore</span><span class="w-title">Clickable correlation matrix — computed live from the data</span></div>
+    <div class="w-body">
+      <div class="controls"><span class="seg"><button class="btn on" data-m="p">Pearson</button><button class="btn" data-m="s">Spearman</button></span><span class="small muted">Click any cell to see the scatter plot behind the number.</span></div>
+      <div class="w-split">
+        <div id="heat"></div>
+        <div><svg id="heat-svg"></svg><div class="explain" id="heat-exp"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Pearson vs Spearman</h3>
+  <div class="grid2">
+    <div class="card blue"><span class="tag">method = "pearson" (default)</span><h4>Linear relationship of the values</h4><p>Uses the actual numbers. Sensitive to outliers and only detects <em>straight-line</em> patterns.</p></div>
+    <div class="card violet"><span class="tag">method = "spearman"</span><h4>Monotonic relationship of the ranks</h4><p>First replaces each value by its rank (1st, 2nd, 3rd…), then computes Pearson on the ranks. Detects any "always going up/down" pattern, even curved, and is robust to outliers.</p></div>
+  </div>
+  <p>Compare price–age: Pearson −0.19 but Spearman −0.32. Age is very skewed (a few houses are 150–225 years old). Those extreme old houses don't follow the "older = cheaper" trend, which weakens Pearson. Ranks tame the extremes, so Spearman sees the trend more clearly. <strong>When the two differ a lot, look for outliers or curvature.</strong></p>
+
+  <h3>chart.Correlation(): everything in one picture</h3>
+  <div class="code" data-label="Lec 2 modeling.R — PerformanceAnalytics"><pre class="r">
+#install.packages("PerformanceAnalytics")   # run once
+library("PerformanceAnalytics")
+chart.Correlation(MyData[,(1:7)])
+chart.Correlation(MyData[,(1:7)], histogram=F)
+</pre></div>
+  <p><code>install.packages()</code> downloads a package once; <code>library()</code> switches it on in every new session. (When it loads you'll see messages about <code>xts</code>, <code>zoo</code> and "masked" objects — those are harmless notes, not errors.)</p>
+  <figure class="figure"><img src="assets/img/l2-chart-correlation.png" alt="chart.Correlation output for the 7 numeric variables" loading="lazy"><figcaption><span class="hand">How to read it:</span> <b>diagonal</b> = histogram + density curve of each variable · <b>below</b> the diagonal = scatter plot of each pair with a red smoothed trend · <b>above</b> = the correlation; bigger font = stronger, and stars = significance (*** p &lt; 0.001, ** p &lt; 0.01, * p &lt; 0.05, . p &lt; 0.1).</figcaption></figure>
+  <div class="callout key"><div class="c-title">What this tells us before modeling</div>
+    <ul><li><strong>livingArea</strong> is the strongest single predictor of price (r = 0.71), then bathrooms (0.60) and landValue (0.58).</li>
+    <li>Some <em>predictors</em> are strongly correlated with each other: livingArea–rooms 0.73, livingArea–bathrooms 0.72, bedrooms–rooms 0.67. Bigger houses have more of everything. This overlap is called <strong>multicollinearity</strong> and explains a surprise in the model below.</li>
+    <li>Almost every pair gets *** — with 1,728 houses even a weak correlation is "statistically significant". Significant ≠ strong!</li></ul></div>
+</section>
+
+<section class="section" id="s-mlr">
+  <div class="sec-head"><span class="sec-num">2.4</span><h2>Multiple regression with <code>lm()</code></h2></div>
+  <div class="code" data-label="Lec 2 modeling.R — fit the full model"><pre class="r">
+fit1 &lt;- lm( price ~ ., data = MyData[,1:7])
+summary(fit1)
+</pre></div>
+  <p><code>lm</code> = <strong>l</strong>inear <strong>m</strong>odel. The first argument is a <strong>formula</strong>:</p>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Formula</th><th>Meaning</th></tr>
+    <tr><td class="mono">price ~ livingArea</td><td>price explained by livingArea (the tilde <code>~</code> reads "is modelled by")</td></tr>
+    <tr><td class="mono">price ~ age + livingArea</td><td>two predictors</td></tr>
+    <tr><td class="mono">price ~ .</td><td>the dot = <strong>all other columns</strong> of the data → here the 6 other numeric columns</td></tr>
+    <tr><td class="mono">price ~ . - 1</td><td>all other columns, but <strong>no intercept</strong> (−1 removes β₀)</td></tr>
+  </table></div>
+
+  <h3>Reading summary(fit1) — click the highlighted parts</h3>
+  <div class="code" data-label="output of summary(fit1)" data-run="no"><pre class="r"># summary(fit1)</pre>
+  <div class="out" data-label="R output — click highlights"><pre><span class="ann" data-n="&lt;b&gt;Call:&lt;/b&gt; repeats the model you fitted, so you never confuse outputs.">Call:
+lm(formula = price ~ ., data = MyData[, 1:7])</span>
+
+<span class="ann" data-n="&lt;b&gt;Residuals&lt;/b&gt; = actual price − predicted price, for each house. These are their five-number summary. A good sign is a Median near 0 and Min/Max of similar size. Here Max (452,346) is about twice |Min| (220,228): the model underestimates some very expensive houses a lot → residuals are right-skewed.">Residuals:
+    Min      1Q  Median      3Q     Max
+-220228  -36920   -5900   27842  452346</span>
+
+Coefficients:
+              <span class="ann" data-n="&lt;b&gt;Estimate&lt;/b&gt; = the β̂ numbers in the recipe. &lt;b&gt;Std. Error&lt;/b&gt; = how uncertain each estimate is. &lt;b&gt;t value&lt;/b&gt; = Estimate ÷ Std. Error (how many standard errors away from 0). &lt;b&gt;Pr(&gt;|t|)&lt;/b&gt; = p-value for H₀: β = 0 (this variable has no effect, given the others).">Estimate Std. Error t value Pr(>|t|)</span>
+<span class="ann" data-n="&lt;b&gt;Intercept ≈ $21,927&lt;/b&gt;: the predicted price when ALL predictors are 0 — a brand-new house with no land value, 0 sq ft and 0 rooms. That house doesn't exist, so the intercept has no practical meaning here; it just positions the plane correctly. It is still significant (p = 0.0008).">(Intercept)  2.193e+04  6.554e+03   3.345 0.000839 ***</span>
+<span class="ann" data-n="&lt;b&gt;age = −122&lt;/b&gt;: each extra year of age lowers the expected price by about $122, &lt;i&gt;holding the other five variables fixed&lt;/i&gt;. p = 0.027 &lt; 0.05 → significant at 5% (one star).">age         -1.220e+02  5.511e+01  -2.213 0.027027 *  </span>
+<span class="ann" data-n="&lt;b&gt;landValue = 0.949&lt;/b&gt;: every extra $1 of land value adds about $0.95 to the price (others fixed). The t value of 20.5 is huge → p &lt; 2e-16.">landValue    9.492e-01  4.630e-02  20.501  &lt; 2e-16 ***</span>
+<span class="ann" data-n="&lt;b&gt;livingArea = 71.58&lt;/b&gt;: each extra square foot adds about $71.6 (others fixed). 100 sq ft more ≈ $7,158 more.">livingArea   7.158e+01  4.617e+00  15.504  &lt; 2e-16 ***</span>
+<span class="ann" data-n="&lt;b&gt;bedrooms = −10,016&lt;/b&gt; — NEGATIVE, although bedrooms alone correlate +0.40 with price! Not a mistake: the coefficient is the effect of one more bedroom &lt;i&gt;at the same living area and number of rooms&lt;/i&gt;. Squeezing another bedroom into the same space means smaller rooms, which buyers pay less for. Signs can flip in multiple regression when predictors overlap (multicollinearity).">bedrooms    -1.002e+04  2.604e+03  -3.846 0.000124 ***</span>
+<span class="ann" data-n="&lt;b&gt;bathrooms = 24,302&lt;/b&gt;: each extra bathroom adds about $24,300; a half bath (+0.5) about $12,150.">bathrooms    2.430e+04  3.389e+03   7.170 1.11e-12 ***</span>
+<span class="ann" data-n="&lt;b&gt;rooms = 2,903&lt;/b&gt;: each extra room (same area, same bedrooms) adds about $2,900. p = 0.0036 → ** .">rooms        2.903e+03  9.956e+02   2.916 0.003591 ** </span>
+---
+<span class="ann" data-n="&lt;b&gt;Significance codes&lt;/b&gt;: *** p &lt; 0.001 · ** p &lt; 0.01 · * p &lt; 0.05 · . p &lt; 0.1 · blank = not significant at 10%. More stars = stronger evidence that the true coefficient is not zero.">Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span>
+
+<span class="ann" data-n="&lt;b&gt;Residual standard error = $60,440&lt;/b&gt;: the typical size of a prediction error. &lt;b&gt;1721 degrees of freedom&lt;/b&gt; = n − (number of β's) = 1728 − 7.">Residual standard error: 60440 on 1721 degrees of freedom</span>
+<span class="ann" data-n="&lt;b&gt;R² = 0.6243&lt;/b&gt;: the six features explain 62.4% of the variation in house prices. &lt;b&gt;Adjusted R² = 0.623&lt;/b&gt; slightly penalises the number of predictors (it only increases if a new variable helps more than chance would). Use adjusted R² to compare models with different numbers of predictors.">Multiple R-squared:  0.6243,	Adjusted R-squared:  0.623</span>
+<span class="ann" data-n="&lt;b&gt;F-test of the whole model&lt;/b&gt;: H₀ = ALL six slopes are zero (the model is useless). F = 476.6 with 6 and 1721 df gives p &lt; 2.2e-16, so at least one predictor matters. (2.2e-16 is simply the smallest p-value R prints.)">F-statistic: 476.6 on 6 and 1721 DF,  p-value: &lt; 2.2e-16</span></pre></div></div>
+
+  <div class="callout plain"><div class="c-title">in plain words</div>
+    <p>The fitted recipe is <strong>price ≈ 21,927 − 122·age + 0.95·landValue + 71.6·livingArea − 10,016·bedrooms + 24,302·bathrooms + 2,903·rooms</strong>. All six ingredients matter (all have stars). Together they explain about 62% of why prices differ; the remaining 38% comes from things not in the model (location, condition, view…). A typical prediction is off by about $60,000.</p></div>
+
+  <div class="widget" id="w-calc">
+    <div class="w-head"><span class="w-badge">try it</span><span class="w-title">Price calculator — the fitted model fit1</span></div>
+    <div class="w-body">
+      <p class="hint">Move the sliders (they start at the median house). The bars show how many dollars each feature adds or removes.</p>
+      <div class="w-split"><div id="calc-sliders"></div><div><div class="readout"><div class="stat"><div class="k">predicted price</div><div class="v" id="calc-price"></div></div></div><svg id="calc-svg"></svg></div></div>
+      <div class="explain" id="calc-exp"></div>
+    </div>
+  </div>
+  <div class="callout trap"><div class="c-title">Common mistake — "holding others fixed"</div><p>A coefficient in multiple regression is never "the effect of bedrooms" in general. It is the effect of one more bedroom <strong>when all the other predictors stay the same</strong>. That's why bedrooms can be negative here while its simple correlation with price is positive. Try it in the calculator: add a bedroom without adding living area or rooms → price drops.</p></div>
+</section>
+
+<section class="section" id="s-noint">
+  <div class="sec-head"><span class="sec-num">2.5</span><h2>A model without intercept — and the R² trap</h2></div>
+  <div class="code" data-label="Lec 2 modeling.R — all variables without intercept"><pre class="r">
+fit2 &lt;- lm(price ~ .-1, data = MyData[,1:7])
+summary(fit2)
+</pre><div class="out"><pre>Coefficients:
+             Estimate Std. Error t value Pr(>|t|)
+age        -5.928e+01  5.198e+01  -1.140  0.25428
+landValue   9.471e-01  4.643e-02  20.398  &lt; 2e-16 ***
+livingArea  6.941e+01  4.585e+00  15.140  &lt; 2e-16 ***
+bedrooms   -6.201e+03  2.348e+03  -2.641  0.00835 **
+bathrooms   2.871e+04  3.132e+03   9.166  &lt; 2e-16 ***
+rooms       3.267e+03  9.926e+02   3.292  0.00102 **
+---
+Residual standard error: 60620 on 1722 degrees of freedom
+<span class="hl">Multiple R-squared:  0.9329</span>,	Adjusted R-squared:  0.9327
+F-statistic:  3993 on 6 and 1722 DF,  p-value: &lt; 2.2e-16</pre></div></div>
+  <p>Removing the intercept forces the plane through the origin: "a house with 0 of everything costs $0". Two things changed: age is no longer significant, and <strong>R² jumped from 0.62 to 0.93</strong>. Is fit2 suddenly a much better model? <strong>No!</strong></p>
+  <div class="callout trap"><div class="c-title">The R² trap</div>
+    <p>With an intercept, R² compares the model with the simplest alternative "predict every house at the <em>average</em> price". Without an intercept, R switches to comparing with "predict every house at <strong>$0</strong>" — a ridiculous baseline that anything beats. The two R² values are measured on different scales and <strong>cannot be compared</strong>.</p>
+    <p>Proof: if we measure fit1 on fit2's scale (vs. $0), fit1 scores <strong>0.9334</strong> — higher than fit2's 0.9329. Look also at the residual standard error: fit2's errors are <em>bigger</em> ($60,620 vs $60,440).</p></div>
+  <div class="formula">$$ R^2_{\text{with }\beta_0} = 1-\frac{\sum (y_i-\hat y_i)^2}{\sum (y_i-\bar y)^2} \qquad\quad R^2_{\text{no }\beta_0} = 1-\frac{\sum (y_i-\hat y_i)^2}{\sum y_i^2} $$<span class="f-cap">same top, different bottom: deviations from the mean vs. from zero</span></div>
+
+  <div class="widget" id="w-origin">
+    <div class="w-head"><span class="w-badge">see it</span><span class="w-title">Forcing the line through (0, 0)</span></div>
+    <div class="w-body">
+      <p class="hint">Same idea with one predictor so you can see it: the study-hours data from Lecture 3. Toggle the intercept.</p>
+      <div class="controls"><span class="seg"><button class="btn on" data-i="1">with intercept</button><button class="btn" data-i="0">without intercept (−1)</button></span></div>
+      <svg id="org-svg"></svg>
+      <div class="readout" id="org-stats"></div>
+      <div class="explain" id="org-exp"></div>
+    </div>
+  </div>
+
+  <h3>Comparing the two models properly: <code>anova()</code></h3>
+  <div class="code" data-label="Lec 2 modeling.R — compare regression models"><pre class="r">
+anova(fit1,fit2)  # in this case is significant
+</pre><div class="out"><pre>Analysis of Variance Table
+
+Model 1: price ~ age + landValue + livingArea + bedrooms + bathrooms + rooms
+Model 2: price ~ (age + landValue + livingArea + bedrooms + bathrooms + rooms) - 1
+  Res.Df        RSS Df   Sum of Sq      F    Pr(>F)
+1   1721 6.2878e+12
+2   1722 6.3287e+12 -1 -4.0891e+10 <span class="hl">11.192 0.0008392</span> ***</pre></div></div>
+  <p><code>anova()</code> compares two <strong>nested</strong> models (one is the other with something removed). It asks: "does removing the intercept make the fit significantly worse?"</p>
+  <ul>
+    <li><strong>RSS</strong> = residual sum of squares (total squared error). Without intercept it grows from 6.2878×10¹² to 6.3287×10¹².</li>
+    <li><strong>Df = −1</strong>: model 2 has one parameter less. <strong>Sum of Sq</strong> = the change in RSS.</li>
+    <li><strong>F</strong> = (increase in RSS per removed parameter) ÷ (RSS of the bigger model per residual df):</li>
+  </ul>
+  <div class="formula">$$ F=\frac{(RSS_2-RSS_1)/1}{RSS_1/1721}=\frac{4.0891\times10^{10}}{6.2878\times10^{12}/1721}\approx 11.19 $$</div>
+  <p><strong>Decision:</strong> p = 0.0008 &lt; 0.05 → removing the intercept makes the model significantly worse → <strong>keep the intercept (fit1)</strong>. The script's comment "in this case is significant" means exactly this. (Notice the p-value 0.000839 is the same as the intercept's p-value in summary(fit1) — testing one coefficient with an F-test is equivalent to its t-test: F = t² = 3.345² ≈ 11.19.)</p>
+</section>
+
+<section class="section" id="s-resid">
+  <div class="sec-head"><span class="sec-num">2.6</span><h2>Residual analysis: checking the assumptions</h2></div>
+  <p>A <strong>residual</strong> is what the model got wrong for one house: \(e_i = y_i - \hat y_i\) (actual − predicted). The p-values and confidence intervals from <code>summary()</code> are only trustworthy if the errors behave nicely: <strong>centred at zero</strong>, <strong>constant spread</strong>, <strong>no pattern</strong>, and roughly <strong>normal</strong>. Since we can't see the true errors, we inspect the residuals.</p>
+  <div class="code" data-label="Lec 2 modeling.R — residual analysis (normality)"><pre class="r">
+windows()                              # open a new plot window (Windows only)
+plot(fit1$fitted , fit1$residual)      # residuals vs fitted values
+abline(0,0)                            # horizontal line at 0
+title("Residuals plot")
+qqnorm(fit1$residuals) ; qqline(fit1$residuals)
+hist(fit1$resid)
+shapiro.test(fit1$resid)
+boxplot(fit1$resid)
+</pre><div class="out"><pre>	Shapiro-Wilk normality test
+
+data:  fit1$resid
+W = 0.91067, p-value &lt; 2.2e-16</pre></div></div>
+  <ul>
+    <li><code>fit1$fitted</code> and <code>fit1$residual</code> pull pieces out of the model object with <code>$</code>. R accepts partial names, so <code>fit1$resid</code> = <code>fit1$residuals</code>.</li>
+    <li><code>abline(0, 0)</code> draws a line with intercept 0 and slope 0 — the horizontal zero line.</li>
+    <li><code>windows()</code> opens a separate plot window on Windows. It isn't needed in RStudio (and doesn't exist on Mac — there it's <code>quartz()</code>).</li>
+  </ul>
+  <div class="fig-row">
+    <figure class="figure"><img src="assets/img/l2-residuals-vs-fitted.png" alt="Residuals versus fitted values" loading="lazy"><figcaption><b>Residuals vs fitted.</b> Ideal: a shapeless cloud of equal width. Here the cloud <b>widens</b> to the right (a funnel) → bigger houses have bigger errors: <b>heteroscedasticity</b>. There are also some large positive residuals.</figcaption></figure>
+    <figure class="figure"><img src="assets/img/l2-qq.png" alt="Normal Q-Q plot of residuals" loading="lazy"><figcaption><b>Normal Q-Q plot.</b> If residuals were normal, points would sit on the line. The upper end bends up sharply → a heavy <b>right tail</b> (some houses much pricier than predicted).</figcaption></figure>
+    <figure class="figure"><img src="assets/img/l2-resid-hist.png" alt="Histogram of residuals" loading="lazy"><figcaption><b>Histogram.</b> Roughly bell-shaped in the middle, but with a long tail to the right.</figcaption></figure>
+    <figure class="figure"><img src="assets/img/l2-resid-boxplot.png" alt="Boxplot of residuals" loading="lazy"><figcaption><b>Boxplot.</b> The dots beyond the whiskers are potential <b>outliers</b> — many more above than below.</figcaption></figure>
+  </div>
+  <h3>The Shapiro–Wilk test</h3>
+  <div class="grid2">
+    <div class="card"><span class="tag">hypotheses</span><h4>H₀: the residuals are normal</h4><p>H₁: they are not normal. W close to 1 = very normal-looking.</p></div>
+    <div class="card rose"><span class="tag">result</span><h4>W = 0.911, p &lt; 2.2×10⁻¹⁶</h4><p>p &lt; 0.05 → <strong>reject H₀</strong>: the residuals are not normally distributed. This confirms what the Q-Q plot shows.</p></div>
+  </div>
+  <div class="callout note"><div class="c-title">Keep in perspective</div><p>With 1,728 observations, Shapiro–Wilk detects even tiny departures from normality, so always look at the plots too. Mild non-normality matters less in large samples (the coefficient estimates are still fine); the funnel shape (unequal spread) is the bigger concern for the standard errors. A common fix — beyond this lecture's script — is to model <code>log(price)</code> instead of price.</p></div>
+
+  <div class="widget" id="w-pat">
+    <div class="w-head"><span class="w-badge">train your eye</span><span class="w-title">What do residual plots look like when something is wrong?</span></div>
+    <div class="w-body">
+      <div class="controls"><span class="seg" id="pat-btns"><button class="btn on" data-p="good">healthy</button><button class="btn" data-p="funnel">funnel</button><button class="btn" data-p="curve">curve</button><button class="btn" data-p="outlier">outliers</button></span><button class="btn ghost" id="pat-new">↻ new sample</button></div>
+      <svg id="pat-svg"></svg>
+      <div class="explain" id="pat-exp"></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="s-quiz">
+  <div class="sec-head"><span class="sec-num">✓</span><h2>Check yourself</h2></div>
+  <div class="quiz" data-id="l2">
+    <div class="quiz-top"><h3>Lecture 2 quiz</h3><span class="quiz-score"></span></div>
+    <div class="q" data-a="1"><div class="q-text">What does <code>lm(price ~ ., data = MyData[,1:7])</code> use as predictors?</div>
+      <div class="q-opts"><button class="q-opt">Only the first predictor column</button><button class="q-opt">All columns 1–7 except price</button><button class="q-opt">All 12 columns</button><button class="q-opt">No predictors, only an intercept</button></div>
+      <div class="q-fb">The dot means "every other column of the data you gave me". The data is <code>MyData[,1:7]</code>, so: age, landValue, livingArea, bedrooms, bathrooms, rooms.</div></div>
+    <div class="q" data-a="2"><div class="q-text">In fit1, the coefficient of livingArea is 71.58. Which interpretation is correct?</div>
+      <div class="q-opts"><button class="q-opt">A house with 71.58 sq ft costs $1</button><button class="q-opt">Living area explains 71.58% of price</button><button class="q-opt">One more square foot raises the expected price by ≈ $71.58, holding the other predictors fixed</button><button class="q-opt">Price rises by 71.58% per square foot</button></div>
+      <div class="q-fb">A slope = change in Y for a one-unit increase in that X, with all other X's held constant.</div></div>
+    <div class="q" data-a="0"><div class="q-text">Bedrooms has a positive correlation with price (0.40) but a negative coefficient in fit1. Why?</div>
+      <div class="q-opts"><button class="q-opt">At the same living area and rooms, more bedrooms means smaller rooms — and bedrooms overlaps with other predictors</button><button class="q-opt">R made a rounding error</button><button class="q-opt">The correlation is wrong</button><button class="q-opt">Because the intercept is positive</button></div>
+      <div class="q-fb">The regression coefficient is a "ceteris paribus" effect. Strongly related predictors (multicollinearity) can make signs differ from simple correlations.</div></div>
+    <div class="q" data-a="3"><div class="q-text">fit2 (no intercept) has R² = 0.93 vs 0.62 for fit1. What should you conclude?</div>
+      <div class="q-opts"><button class="q-opt">fit2 is much better</button><button class="q-opt">fit1 is overfitted</button><button class="q-opt">Both R² values mean the same thing</button><button class="q-opt">Nothing — without an intercept R² is computed against 0, not the mean, so they aren't comparable</button></div>
+      <div class="q-fb">Use <code>anova()</code> (or residual standard error) to compare. anova gave p = 0.0008 → the intercept is needed.</div></div>
+    <div class="q" data-a="1"><div class="q-text">anova(fit1, fit2) gives p = 0.00084. At the 5% level you…</div>
+      <div class="q-opts"><button class="q-opt">keep fit2, because the p-value is small</button><button class="q-opt">keep fit1: removing the intercept significantly worsens the fit</button><button class="q-opt">conclude both models are equal</button><button class="q-opt">conclude the residuals are normal</button></div>
+      <div class="q-fb">H₀ of this comparison: "the simpler model (fit2) is as good". Small p → reject → the extra parameter (the intercept) is useful.</div></div>
+    <div class="q" data-a="2"><div class="q-text">Shapiro–Wilk on the residuals gives p &lt; 2.2e-16. This means…</div>
+      <div class="q-opts"><button class="q-opt">the residuals are normal</button><button class="q-opt">the model is significant</button><button class="q-opt">we reject normality of the residuals</button><button class="q-opt">there is no heteroscedasticity</button></div>
+      <div class="q-fb">H₀ of Shapiro–Wilk is "normal". A tiny p-value rejects it.</div></div>
+    <div class="q" data-a="0"><div class="q-text">A residuals-vs-fitted plot that widens like a funnel indicates…</div>
+      <div class="q-opts"><button class="q-opt">Non-constant error variance (heteroscedasticity)</button><button class="q-opt">A perfect fit</button><button class="q-opt">Missing intercept</button><button class="q-opt">Normal residuals</button></div>
+      <div class="q-fb">Constant variance (homoscedasticity) looks like a band of equal width. A funnel means the error size depends on the fitted value.</div></div>
+    <div class="q" data-a="3"><div class="q-text">Pearson r(price, age) = −0.19, Spearman = −0.32. The most likely reason?</div>
+      <div class="q-opts"><button class="q-opt">Spearman is always larger</button><button class="q-opt">Pearson ignores negative values</button><button class="q-opt">There are missing values</button><button class="q-opt">Skewness/outliers in age (a few very old houses) weaken the linear measure; ranks are robust to them</button></div>
+      <div class="q-fb">Spearman works on ranks, so extreme values have limited influence.</div></div>
+    <div class="controls"><button class="btn ghost quiz-reset">↺ try again</button></div>
+  </div>
+</section>
+
+<section class="section" id="s-sum">
+  <div class="sec-head"><span class="sec-num">★</span><h2>Summary</h2></div>
+  <div class="takeaways"><ul>
+    <li><code>read.csv</code> → data frame; inspect with <code>head</code>, <code>names</code>, <code>summary</code>; reach columns with <code>$</code>.</li>
+    <li><code>cor(data)</code> gives a correlation matrix; <code>method = "spearman"</code> uses ranks (robust). <code>chart.Correlation</code> shows histograms, scatters and r's together.</li>
+    <li><code>lm(y ~ ., data)</code> fits a multiple regression; <code>- 1</code> drops the intercept.</li>
+    <li>Coefficients are effects <strong>holding the other predictors fixed</strong>; stars show significance; R² = share of variation explained; F-test = is the model useful at all.</li>
+    <li>R² without intercept is not comparable — compare nested models with <code>anova()</code>.</li>
+    <li>Check residuals: vs fitted (pattern/funnel), Q-Q &amp; histogram (normality), boxplot (outliers), <code>shapiro.test</code> (H₀: normal).</li>
+    <li>For the home prices: a useful model (R² = 0.62), but residuals show a funnel and a heavy right tail.</li>
+  </ul></div>
+</section>
+
+<div id="lec-nav"></div>
+</main>
+</div>
+
+<script>
+document.addEventListener('ds:ready', () => {
+  const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+  const P = window.DS_PLOT, SV = window.DS_SVG;
+  const csv = S.parseCSV(window.DS_HOME);
+  const NUM = csv.head.slice(0, 7);
+  const col = name => csv.rows.map(r => r[csv.head.indexOf(name)]);
+  const money = v => '$' + Math.round(v).toLocaleString('en-US');
+  const LABEL = { price: 'price ($)', age: 'age (years)', landValue: 'land value ($)', livingArea: 'living area (sq ft)', bedrooms: 'bedrooms', bathrooms: 'bathrooms', rooms: 'rooms' };
+
+  /* ---------- variable explorer ---------- */
+  (function () {
+    let cur = 'price';
+    $('#var-btns').innerHTML = NUM.map(n => `<button class="btn ${n === cur ? 'on' : ''}" data-v="${n}">${n}</button>`).join('');
+    $$('#var-btns .btn').forEach(b => b.addEventListener('click', () => { cur = b.dataset.v; $$('#var-btns .btn').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
+    function q(sorted, p) { const h = (sorted.length - 1) * p, lo = Math.floor(h); return sorted[lo] + (h - lo) * (sorted[lo + 1 === sorted.length ? lo : lo + 1] - sorted[lo]); }
+    function draw() {
+      const v = col(cur), s = v.slice().sort((a, b) => a - b);
+      const mn = s[0], mx = s[s.length - 1];
+      const discrete = new Set(v).size <= 16;
+      let bins;
+      if (discrete) { const vals = Array.from(new Set(v)).sort((a, b) => a - b); bins = vals.map(x => ({ a: x - 0.2, b: x + 0.2, c: v.filter(y => y === x).length, lab: x })); }
+      else { const k = 30, w = (mx - mn) / k; bins = Array.from({ length: k }, (_, i) => ({ a: mn + i * w, b: mn + (i + 1) * w, c: 0 })); v.forEach(x => { const i = Math.min(k - 1, Math.floor((x - mn) / w)); bins[i].c++; }); }
+      const top = Math.max(...bins.map(b => b.c));
+      const pad = discrete ? 0.6 : 0;
+      const p = P($('#var-svg'), { w: 620, h: 280, x: [bins[0].a - pad, bins[bins.length - 1].b + pad], y: [0, top * 1.08], xlab: LABEL[cur], ylab: 'number of houses' });
+      bins.forEach(b => p.el('rect', { x: p.X(b.a), y: p.Y(b.c), width: Math.max(1, p.X(b.b) - p.X(b.a) - 1), height: p.Y(0) - p.Y(b.c), class: 'pt', style: 'fill-opacity:.55' }));
+      const mean = S.mean(v), med = q(s, .5);
+      p.el('line', { x1: p.X(mean), x2: p.X(mean), y1: p.Y(0), y2: p.Y(top * 1.05), class: 'ln-red' });
+      p.el('line', { x1: p.X(med), x2: p.X(med), y1: p.Y(0), y2: p.Y(top * 1.05), class: 'ln', style: 'stroke-dasharray:5 3' });
+      const t1 = p.el('text', { x: p.X(mean) + 4, y: p.Y(top * 1.0), class: 'lbl-txt', style: 'fill:var(--red)' }); t1.textContent = 'mean';
+      const t2 = p.el('text', { x: p.X(med) - 4, y: p.Y(top * 0.92), class: 'lbl-txt', 'text-anchor': 'end' }); t2.textContent = 'median';
+      const f = x => (cur === 'price' || cur === 'landValue') ? money(x) : S.fmt(x, 3);
+      $('#var-stats').innerHTML = [['Min', mn], ['1st Qu.', q(s, .25)], ['Median', med], ['Mean', mean], ['3rd Qu.', q(s, .75)], ['Max', mx], ['sd', S.sd(v)]].map(([k, x]) => `<div class="stat"><div class="k">${k}</div><div class="v">${f(x)}</div></div>`).join('');
+      const skew = (mean - med) / S.sd(v);
+      $('#var-exp').innerHTML = skew > 0.1 ? `Mean (red) is to the <b>right</b> of the median (dashed): a long right tail of large values pulls the mean up — the distribution is <b>right-skewed</b>.` :
+        skew < -0.1 ? 'Mean is left of the median: left-skewed.' : `Mean and median are close: the distribution is fairly <b>symmetric</b>.` + (discrete ? ' This variable takes only a few whole (or half) values, so the bars are counts per value.' : '');
+    }
+    draw();
+  })();
+
+  /* ---------- heatmap ---------- */
+  (function () {
+    const cols = NUM.map(col);
+    let method = 'p', sel = [0, 3];
+    const ranks = cols.map(S.rank);
+    const M = { p: cols.map(a => cols.map(b => S.cor(a, b))), s: ranks.map(a => ranks.map(b => S.cor(a, b))) };
+    const short = { price: 'price', age: 'age', landValue: 'land', livingArea: 'living', bedrooms: 'bed', bathrooms: 'bath', rooms: 'rooms' };
+    function color(r) { const a = Math.abs(r); return r >= 0 ? `rgba(36,99,184,${0.08 + a * 0.75})` : `rgba(200,65,43,${0.08 + a * 0.75})`; }
+    function draw() {
+      const m = M[method];
+      $('#heat').innerHTML = `<div style="display:grid;grid-template-columns:54px repeat(7,1fr);gap:2px;font-family:var(--f-mono);font-size:.68rem">` +
+        '<div></div>' + NUM.map(n => `<div style="text-align:center;color:var(--muted);overflow:hidden">${short[n]}</div>`).join('') +
+        NUM.map((rn, i) => `<div style="color:var(--muted);align-self:center">${short[rn]}</div>` + NUM.map((cn, j) => {
+          const r = m[i][j], on = (sel[0] === i && sel[1] === j) || (sel[0] === j && sel[1] === i);
+          return `<button data-i="${i}" data-j="${j}" title="${rn} vs ${cn}: ${r.toFixed(3)}" style="aspect-ratio:1;border:${on ? '2px solid var(--ink)' : '1px solid transparent'};border-radius:3px;background:${color(r)};color:${Math.abs(r) > .55 ? '#fff' : 'var(--ink)'};font-family:var(--f-mono);font-size:.68rem;cursor:pointer;padding:0">${i === j ? '1' : r.toFixed(2)}</button>`;
+        }).join('')).join('') + '</div>';
+      $$('#heat button').forEach(b => b.addEventListener('click', () => { sel = [+b.dataset.i, +b.dataset.j]; draw(); }));
+      scatter();
+    }
+    function scatter() {
+      let [i, j] = sel; if (i === j) j = (i + 1) % 7;
+      const x = cols[j], y = cols[i];
+      const xr = [Math.min(...x), Math.max(...x)], yr = [Math.min(...y), Math.max(...y)];
+      const px = (xr[1] - xr[0]) * .04 || 1, py = (yr[1] - yr[0]) * .04 || 1;
+      const p = P($('#heat-svg'), { w: 420, h: 300, x: [xr[0] - px, xr[1] + px], y: [yr[0] - py, yr[1] + py], xlab: NUM[j], ylab: NUM[i], m: { l: 58 } });
+      x.forEach((v, k) => p.el('circle', { cx: p.X(v), cy: p.Y(y[k]), r: 2, class: 'pt', style: 'fill-opacity:.3' }));
+      const o = S.ols(x, y);
+      p.el('line', { x1: p.X(xr[0]), y1: p.Y(o.b0 + o.b1 * xr[0]), x2: p.X(xr[1]), y2: p.Y(o.b0 + o.b1 * xr[1]), class: 'ln-red' });
+      const rp = M.p[i][j], rs = M.s[i][j];
+      $('#heat-exp').innerHTML = `<b>${NUM[i]} vs ${NUM[j]}</b>: Pearson r = ${rp.toFixed(3)}, Spearman = ${rs.toFixed(3)} → a <b>${S.strength(method === 'p' ? rp : rs)} ${(method === 'p' ? rp : rs) >= 0 ? 'positive' : 'negative'}</b> relationship.` + (Math.abs(rp - rs) > 0.08 ? ' The two methods disagree noticeably — a hint of outliers, skewness or curvature.' : '') + ' Red line = least-squares line.';
+    }
+    $$('#w-heat [data-m]').forEach(b => b.addEventListener('click', () => { method = b.dataset.m; $$('#w-heat [data-m]').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
+    draw();
+  })();
+
+  /* ---------- price calculator ---------- */
+  (function () {
+    const B = { age: -121.966296, landValue: 0.9491643539, livingArea: 71.57844133, bedrooms: -10016.07746, bathrooms: 24301.59754, rooms: 2903.267743 };
+    const b0 = 21927.40939;
+    const cfg = { age: [0, 225, 1, 19], landValue: [200, 412600, 100, 25000], livingArea: [616, 5228, 1, 1634], bedrooms: [1, 7, 1, 3], bathrooms: [0, 4.5, 0.5, 2], rooms: [2, 12, 1, 7] };
+    const val = {};
+    $('#calc-sliders').innerHTML = Object.keys(cfg).map(k => `<div class="slider"><label for="c-${k}">${k}</label><input type="range" id="c-${k}" min="${cfg[k][0]}" max="${cfg[k][1]}" step="${cfg[k][2]}" value="${cfg[k][3]}"><output id="o-${k}"></output></div>`).join('') + '<div class="controls"><button class="btn ghost" id="calc-reset">median house</button><button class="btn ghost" id="calc-bed">+1 bedroom only</button></div>';
+    function draw() {
+      Object.keys(cfg).forEach(k => { val[k] = +$('#c-' + k).value; $('#o-' + k).textContent = k === 'landValue' ? money(val[k]) : val[k]; });
+      const parts = [['intercept', b0]].concat(Object.keys(B).map(k => [k, B[k] * val[k]]));
+      const total = parts.reduce((s, p) => s + p[1], 0);
+      $('#calc-price').textContent = money(total);
+      $('#calc-price').className = 'v ' + (total < 0 ? 'bad' : '');
+      const mx = Math.max(...parts.map(p => Math.abs(p[1])), 1);
+      const svg = $('#calc-svg'); svg.setAttribute('viewBox', '0 0 360 230'); svg.classList.add('plot'); svg.innerHTML = '';
+      const mid = 180, sc = 150 / mx;
+      SV('line', { x1: mid, x2: mid, y1: 6, y2: 224, style: 'stroke:var(--rule2)' }, svg);
+      parts.forEach((p, i) => {
+        const y = 10 + i * 30, w = p[1] * sc;
+        SV('rect', { x: w >= 0 ? mid : mid + w, y, width: Math.abs(w), height: 20, style: `fill:${p[1] >= 0 ? 'var(--blue)' : 'var(--red)'};fill-opacity:.75` }, svg);
+        const t = SV('text', { x: w >= 0 ? mid - 4 : mid + 4, y: y + 14, 'text-anchor': w >= 0 ? 'end' : 'start', class: 'lbl-txt', style: 'font-size:10px' }, svg); t.textContent = p[0];
+        const t2 = SV('text', { x: w >= 0 ? mid + w + 3 : mid + w - 3, y: y + 14, 'text-anchor': w >= 0 ? 'start' : 'end', class: 'lbl-txt', style: 'font-size:10px;fill:var(--muted)' }, svg); t2.textContent = (p[1] >= 0 ? '+' : '−') + money(Math.abs(p[1])).slice(1);
+      });
+      $('#calc-exp').innerHTML = `price = 21,927 − 122×${val.age} + 0.949×${val.landValue.toLocaleString()} + 71.58×${val.livingArea} − 10,016×${val.bedrooms} + 24,302×${val.bathrooms} + 2,903×${val.rooms} = <b>${money(total)}</b>` +
+        (total < 0 ? '<br><b>Negative price!</b> You moved outside the range of typical houses: a regression line should not be trusted far from the data it was fitted on (extrapolation).' : '');
+    }
+    $$('#calc-sliders input').forEach(i => i.addEventListener('input', draw));
+    $('#calc-reset').addEventListener('click', () => { Object.keys(cfg).forEach(k => ($('#c-' + k).value = cfg[k][3])); draw(); });
+    $('#calc-bed').addEventListener('click', () => { const e = $('#c-bedrooms'); e.value = Math.min(7, +e.value + 1); draw(); });
+    draw();
+  })();
+
+  /* ---------- through the origin ---------- */
+  (function () {
+    const x = [2, 4, 6, 8, 10, 3, 5, 7, 9, 11], y = [60, 70, 80, 85, 90, 65, 75, 82, 88, 92];
+    let withInt = true;
+    function draw() {
+      const p = P($('#org-svg'), { w: 600, h: 300, x: [0, 12], y: [0, 100], xlab: 'hours studied', ylab: 'exam score' });
+      let b0, b1;
+      if (withInt) { const o = S.ols(x, y); b0 = o.b0; b1 = o.b1; } else { b0 = 0; b1 = S.sum(x.map((v, i) => v * y[i])) / S.sum(x.map(v => v * v)); }
+      const fit = x.map(v => b0 + b1 * v), rss = S.sum(y.map((v, i) => (v - fit[i]) ** 2));
+      const my = S.mean(y), tss = S.sum(y.map(v => (v - my) ** 2)), tss0 = S.sum(y.map(v => v * v));
+      x.forEach((v, i) => p.el('line', { x1: p.X(v), x2: p.X(v), y1: p.Y(y[i]), y2: p.Y(fit[i]), class: 'resid' }));
+      p.el('line', { x1: p.X(0), y1: p.Y(b0), x2: p.X(12), y2: p.Y(b0 + b1 * 12), class: 'ln-red' });
+      x.forEach((v, i) => p.el('circle', { cx: p.X(v), cy: p.Y(y[i]), r: 4.5, class: 'pt' }));
+      p.el('circle', { cx: p.X(0), cy: p.Y(b0), r: 4, style: 'fill:var(--red)' });
+      const r2 = withInt ? 1 - rss / tss : 1 - rss / tss0;
+      $('#org-stats').innerHTML = `<div class="stat"><div class="k">line</div><div class="v">ŷ = ${b0.toFixed(2)} + ${b1.toFixed(3)}x</div></div><div class="stat"><div class="k">RSS (error)</div><div class="v ${withInt ? 'good' : 'bad'}">${rss.toFixed(1)}</div></div><div class="stat"><div class="k">R² reported</div><div class="v">${r2.toFixed(4)}</div></div>`;
+      $('#org-exp').innerHTML = withInt ? 'With an intercept the line can start where the data needs it to (≈ 55.7). Small red residuals; R² compares against the mean score.' :
+        `Without intercept the line must pass through (0, 0) — it is pulled far from the points and the squared error (RSS) is ${rss.toFixed(0)} instead of 33. Yet the reported R² is <b>${r2.toFixed(4)}</b> — even higher! That's the trap: R² is now measured against 0, not against the mean.`;
+    }
+    $$('#w-origin [data-i]').forEach(b => b.addEventListener('click', () => { withInt = b.dataset.i === '1'; $$('#w-origin [data-i]').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
+    draw();
+  })();
+
+  /* ---------- residual pattern gallery ---------- */
+  (function () {
+    let pat = 'good';
+    const rn = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+    const TXT = {
+      good: '<b>Healthy:</b> a shapeless band of constant width around 0. No curve, no funnel, no extreme points. This is what we hope for.',
+      funnel: '<b>Funnel (heteroscedasticity):</b> spread grows with the fitted value — like the house-price model. Standard errors and p-values become unreliable. Typical fix: transform Y (e.g. log).',
+      curve: '<b>Curve:</b> residuals are positive at both ends and negative in the middle → the true relationship is not a straight line. Fix: add a squared term or transform a variable.',
+      outlier: '<b>Outliers:</b> a few points far from the rest. They can pull the fitted line towards them. Check whether they are data errors or genuinely unusual cases.'
+    };
+    function draw() {
+      const n = 160, pts = [];
+      for (let i = 0; i < n; i++) {
+        const f = Math.random() * 10; let e;
+        if (pat === 'good') e = rn();
+        if (pat === 'funnel') e = rn() * (0.15 + f * 0.3);
+        if (pat === 'curve') e = 0.25 * (f - 5) ** 2 - 2.1 + rn() * 0.7;
+        if (pat === 'outlier') e = rn() * 0.9 + (i < 5 ? (i % 2 ? 6 : -5.5) : 0);
+        pts.push([f, e]);
+      }
+      const p = P($('#pat-svg'), { w: 600, h: 260, x: [0, 10], y: [-7, 7], xlab: 'fitted values', ylab: 'residuals' });
+      p.el('line', { x1: p.X(0), x2: p.X(10), y1: p.Y(0), y2: p.Y(0), class: 'ln' });
+      pts.forEach(([f, e]) => p.el('circle', { cx: p.X(f), cy: p.Y(e), r: 3, class: Math.abs(e) > 4.5 ? 'pt-red' : 'pt-hollow' }));
+      $('#pat-exp').innerHTML = TXT[pat];
+    }
+    $$('#pat-btns .btn').forEach(b => b.addEventListener('click', () => { pat = b.dataset.p; $$('#pat-btns .btn').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
+    $('#pat-new').addEventListener('click', draw);
+    draw();
+  })();
+});
+</script>
+</body>
+</html>

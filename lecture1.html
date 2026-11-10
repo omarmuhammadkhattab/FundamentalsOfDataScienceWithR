@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L1 · R Basics — DS550</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@500;700&family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/site.js"></script>
+<script>
+window.R_SNIPPETS = [
+  { label: 'calculator', code: '2 + 3\n2 * 3\n2^3\n2 > 3' },
+  { label: 'vectors', code: 'x <- c(1, 3, 4, 3)\nx + 6\nmean(x)\nlength(x)\nclass(x)' },
+  { label: 'NA', code: 'v1 <- c(1, 2, 3, NA)\nmean(v1)\nmean(v1, na.rm = TRUE)' },
+  { label: 'indexing', code: 'v <- 10:15\nv[2]\nv[c(1, 5)]\nv[-3]\nv[v > 12]' },
+  { label: 'recycling', code: 'v1 <- c(1, 2, 3, 4, 5)\nv2 <- c(1, 2)\nv1 + v2' },
+  { label: 'matrix', code: 'M <- matrix(1:6, nrow = 2, ncol = 3, byrow = TRUE)\nM\nt(M)\ndim(M)' },
+  { label: '%*%', code: 'A <- matrix(0:8, nrow = 3, byrow = TRUE)\nA * A\nA %*% A' },
+  { label: 'inverse', code: 'M <- matrix(c(1,1,4,1,2,3,3,2,1), 3, 3)\nsolve(M)\ndet(M)\nround(solve(M) %*% M, 5)' },
+  { label: 'OLS with matrices', code: 'hours  <- c(2, 4, 6, 8, 10, 3, 5, 7, 9, 11)\nscores <- c(60, 70, 80, 85, 90, 65, 75, 82, 88, 92)\nX <- cbind(1, hours)\nsolve(t(X) %*% X) %*% t(X) %*% scores' }
+];
+</script>
+</head>
+<body data-page="l1">
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="big-num">01</div>
+    <div>
+      <div class="kicker">Lecture 1 · R basics</div>
+      <h1>Talking to R: <em>vectors</em>, indexing &amp; <em>matrices</em></h1>
+      <p class="lead">Before we can model anything, we need to speak R fluently. This lecture walks through every line of <code>Lec 1.R</code>: using R as a calculator, storing values, handling missing data, picking elements out of vectors and matrices, and the matrix algebra that secretly powers every regression you will fit in this course.</p>
+      <div class="chips"><span class="chip">c()</span><span class="chip">&lt;-</span><span class="chip">NA · na.rm</span><span class="chip">v[ ]</span><span class="chip">recycling</span><span class="chip">matrix()</span><span class="chip">%*%</span><span class="chip">solve()</span></div>
+      <div class="hero-meta"><span><b>Source:</b> Lec 1/Lec 1.R (based on De Brouwer, <i>The Big R-Book</i>, 2020)</span><span><b>Videos:</b> Lec 1 parts 1–3</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+<aside class="toc"></aside>
+<main class="content">
+
+<!-- 1 -->
+<section class="section" id="s-start">
+  <div class="sec-head"><span class="sec-num">1.1</span><h2>How to work in R</h2></div>
+  <p><strong>R</strong> is a free programming language made for statistics. <strong>RStudio</strong> is the program you open to write R comfortably. RStudio has four panes: the <em>script</em> (top-left, where you write and save code), the <em>console</em> (bottom-left, where R prints results), the <em>environment</em> (top-right, a list of everything you have stored) and <em>plots/help</em> (bottom-right).</p>
+  <ol class="steps">
+    <li>Write code in a script file (<code>.R</code>) so you can save and re-run it — like <code>Lec 1.R</code>.</li>
+    <li>Put the cursor on a line and press <strong>Ctrl + Enter</strong>. RStudio sends that line to the console and R runs it.</li>
+    <li>Anything after a <code>#</code> is a <strong>comment</strong>: R ignores it. Comments are notes for humans.</li>
+    <li>R answers in the console. A line like <code>[1] 5</code> means "here is the result, and the first value shown is element number 1".</li>
+  </ol>
+  <div class="callout plain"><div class="c-title">in plain words</div>
+    <p>Think of R as a very fast, very literal calculator that can remember things. You tell it something, it answers immediately. Every lecture page here also has a <strong>live R console</strong> — the blue <code>R&gt;</code> button bottom-right. Any code box with a <span class="mono">▶ run</span> button can be sent straight to it.</p></div>
+</section>
+
+<!-- 2 -->
+<section class="section" id="s-calc">
+  <div class="sec-head"><span class="sec-num">1.2</span><h2>R as a calculator</h2></div>
+  <p>The first lines of the script use R exactly like a pocket calculator:</p>
+  <div class="code" data-label="Lec 1.R — arithmetic and logic"><pre class="r">
+# Addition:
+2 + 3
+# Product
+2 * 3
+# Power:
+2**3
+2 ^ 3
+# Logic:
+2   >     3
+</pre><div class="out"><pre>[1] 5
+[1] 6
+[1] 8
+[1] 8
+[1] FALSE</pre></div></div>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Symbol</th><th>Meaning</th><th>Example</th><th>Result</th></tr>
+    <tr><td class="mono">+  -  *  /</td><td>add, subtract, multiply, divide</td><td class="mono">7 / 2</td><td class="mono">3.5</td></tr>
+    <tr><td class="mono">^  or  **</td><td>power ("to the power of")</td><td class="mono">2^3</td><td class="mono">8</td></tr>
+    <tr><td class="mono">%%</td><td>remainder after division</td><td class="mono">7 %% 2</td><td class="mono">1</td></tr>
+    <tr><td class="mono">&gt;  &lt;  &gt;=  &lt;=</td><td>comparisons</td><td class="mono">2 &gt; 3</td><td class="mono">FALSE</td></tr>
+    <tr><td class="mono">==  !=</td><td>equal / not equal (two = signs!)</td><td class="mono">3 == 3</td><td class="mono">TRUE</td></tr>
+  </table></div>
+  <p>Notice that <code>2   &gt;     3</code> has lots of spaces — R does not care about spaces between symbols. And the answer to a comparison is not a number but a <strong>logical value</strong>: <code>TRUE</code> or <code>FALSE</code>. Logical values will become very useful for picking elements out of data (section 1.7).</p>
+</section>
+
+<!-- 3 -->
+<section class="section" id="s-vars">
+  <div class="sec-head"><span class="sec-num">1.3</span><h2>Storing values: variables and vectors</h2></div>
+  <p>To remember a value, give it a name using the <strong>assignment arrow</strong> <code>&lt;-</code> (read it as "gets"). <code>x &lt;- 5</code> means "x gets 5". You can also use <code>=</code>, and the script uses both — they do the same job here.</p>
+  <p>Data almost never comes as a single number, so R's basic building block is the <strong>vector</strong>: an ordered row of values of the same type. You build one with <code>c()</code>, which stands for <em>combine</em>.</p>
+  <div class="code" data-label="Lec 1.R — your first vector"><pre class="r">
+x &lt;- c(1,3,4,3) ;  x  ;x+6
+class(x)
+</pre><div class="out"><pre>[1] 1 3 4 3
+[1]  7  9 10  9
+[1] "numeric"</pre></div></div>
+  <ul>
+    <li>The <strong>semicolon</strong> <code>;</code> lets you put several commands on one line. Here: store x, show x, then show x + 6.</li>
+    <li><code>x + 6</code> adds 6 to <em>every</em> element at once. This is called <strong>vectorised</strong> arithmetic — no loop needed. It is one of R's superpowers.</li>
+    <li><code>class(x)</code> tells you what <em>type</em> of object x is. <code>"numeric"</code> means numbers with decimals allowed.</li>
+  </ul>
+
+  <h3>A long vector, and what <code>[22]</code> means</h3>
+  <div class="code" data-label="Lec 1.R — the colon operator"><pre class="r">
+x=11:100
+x
+u=x[69]
+x[1]= x[1]+3
+x=x+3
+x1=x
+</pre><div class="out"><pre> [1]  11  12  13  14  15  16  17  18  19  20  21  22  23  24  25  26  27  28  29  30  31
+[22]  32  33  34  35  36  37  38  39  40  41  42  43  44  45  46  47  48  49  50  51  52
+[43]  53  54  55  56  57  58  59  60  61  62  63  64  65  66  67  68  69  70  71  72  73
+[64]  74  75  76  77  78  79  80  81  82  83  84  85  86  87  88  89  90  91  92  93  94
+[85]  95  96  97  98  99 100</pre></div></div>
+  <ul>
+    <li><code>11:100</code> creates every whole number from 11 to 100 (90 numbers). The colon means "from … to …".</li>
+    <li>The numbers in square brackets at the start of each printed line are <strong>position labels</strong>, not data. <code>[22]</code> means "the first number on this line is element 22" (which is 32). They help you count in long outputs.</li>
+    <li><code>u = x[69]</code> takes element number 69. Since the vector starts at 11, element 69 is <strong>79</strong>.</li>
+    <li><code>x[1] = x[1] + 3</code> changes <em>only</em> the first element (11 → 14). <code>x = x + 3</code> then adds 3 to <em>all</em> elements.</li>
+    <li><code>x1 = x</code> makes a copy called x1.</li>
+  </ul>
+  <div class="callout key"><div class="c-title">Remember</div><p>R counts from <strong>1</strong>, not 0. The first element is <code>x[1]</code>. (Python counts from 0 — a classic source of confusion if you know both.)</p></div>
+
+  <h3>Printing, mean, and a sneaky name clash</h3>
+  <div class="code" data-label="Lec 1.R"><pre class="r">
+(x &lt;- c(1,3,4,3))
+x.mean &lt;- mean(x)
+print(x.mean)
+y &lt;- c(2,3,5,1)
+sum = x+y
+sum(x,y)
+class(x)
+length(x)
+dim(x)
+</pre><div class="out"><pre>[1] 1 3 4 3
+[1] 2.75
+[1] 22
+[1] "numeric"
+[1] 4
+NULL</pre></div></div>
+  <ul>
+    <li>Wrapping an assignment in <strong>parentheses</strong> <code>(x &lt;- …)</code> stores <em>and</em> prints in one go.</li>
+    <li>Names may contain dots: <code>x.mean</code> is just one name. <code>mean(x)</code> = (1+3+4+3)/4 = <strong>2.75</strong>.</li>
+    <li><code>sum = x + y</code> creates a <em>variable</em> called <code>sum</code> holding (3, 6, 9, 4). But <code>sum(x, y)</code> still calls the <em>function</em> sum and adds up everything: 1+3+4+3+2+3+5+1 = <strong>22</strong>. R is smart enough to look for a function when it sees brackets — but it is confusing for humans.</li>
+    <li><code>length(x)</code> = number of elements (4). <code>dim(x)</code> is <code>NULL</code> because a plain vector has no rows/columns — only matrices and data frames have dimensions.</li>
+  </ul>
+  <div class="callout trap"><div class="c-title">Common mistake</div><p>Avoid naming your variables after built-in functions (<code>sum</code>, <code>mean</code>, <code>c</code>, <code>data</code>, <code>t</code>…). It works, but it makes code hard to read and can cause strange bugs later. Prefer names like <code>total</code> or <code>xy_sum</code>.</p></div>
+</section>
+
+<!-- 4 -->
+<section class="section" id="s-na">
+  <div class="sec-head"><span class="sec-num">1.4</span><h2>Missing values: <code>NA</code></h2></div>
+  <p>Real data has holes — a person skipped a survey question, a sensor broke. R marks a missing value with <strong><code>NA</code></strong> ("Not Available"). This matters a lot: in Lecture 4 a whole lecture is about missing data in regression.</p>
+  <div class="code" data-label="Lec 1.R — NA"><pre class="r">
+v1 &lt;- c(1, 2, 3, NA)
+v1[4]
+v1[4] =10
+mean(v1)
+v1 &lt;- c(1, 2, 3, NA)
+mean(v1)
+class(v1)
+mean(v1, na.rm =  TRUE )
+</pre><div class="out"><pre>[1] NA
+[1] 4
+[1] NA
+[1] "numeric"
+[1] 2</pre></div></div>
+  <p>Why does <code>mean(v1)</code> give <code>NA</code>? Because R refuses to guess. If one value is unknown, the average is unknown too. You have to say explicitly "ignore the missing ones" with the argument <code>na.rm = TRUE</code> (<em>NA remove</em>). Then the mean is (1+2+3)/3 = 2.</p>
+
+  <div class="widget" id="w-na">
+    <div class="w-head"><span class="w-badge">try it</span><span class="w-title">What happens to the mean when a value is missing?</span></div>
+    <div class="w-body">
+      <div class="cells" id="na-cells"></div>
+      <div class="controls">
+        <button class="btn" data-act="mean">mean(v1)</button>
+        <button class="btn" data-act="narm">mean(v1, na.rm = TRUE)</button>
+        <button class="btn" data-act="fill">v1[4] = 10</button>
+        <button class="btn ghost" data-act="reset">reset v1</button>
+      </div>
+      <div class="explain" id="na-exp">Press a button.</div>
+    </div>
+  </div>
+  <div class="callout note"><div class="c-title">Note</div><p><code>class(v1)</code> is still <code>"numeric"</code> — an NA inside a numeric vector is a "numeric NA". The vector does not change type just because a value is missing.</p></div>
+</section>
+
+<!-- 5 -->
+<section class="section" id="s-ws">
+  <div class="sec-head"><span class="sec-num">1.5</span><h2>The workspace: <code>ls()</code> and <code>rm()</code></h2></div>
+  <p>Everything you create lives in your <strong>workspace</strong> (also called the <em>global environment</em> — the top-right pane of RStudio).</p>
+  <div class="code" data-label="Lec 1.R — listing and removing objects"><pre class="r">
+ls(all.names = TRUE)   # shows all
+rm(v1)                 # removes the object v1
+ls()
+rm(list = ls())        # removes all objects
+ls()
+</pre><div class="out"><pre>[1] "sum"    "u"      "v1"     "x"      "x.mean" "x1"     "y"
+[1] "sum"    "u"      "x"      "x.mean" "x1"     "y"
+character(0)</pre></div></div>
+  <ul>
+    <li><code>ls()</code> = <em>list</em> the objects. <code>all.names = TRUE</code> also shows hidden ones (names starting with a dot).</li>
+    <li><code>rm(v1)</code> = <em>remove</em> one object.</li>
+    <li><code>rm(list = ls())</code> = remove <em>everything</em>. Afterwards <code>ls()</code> returns <code>character(0)</code>, meaning "an empty list of names". You will see this line at the top of the Lecture 4 script — it gives a clean start so old objects cannot interfere.</li>
+  </ul>
+</section>
+
+<!-- 6 -->
+<section class="section" id="s-index">
+  <div class="sec-head"><span class="sec-num">1.6</span><h2>Picking elements: indexing with <code>[ ]</code></h2></div>
+  <p>Square brackets after a vector mean "give me some of the elements". What you put inside decides <em>which</em> ones. There are three ways:</p>
+  <div class="grid3">
+    <div class="card blue"><span class="tag">positive numbers</span><h4>"take these positions"</h4><p><code>v[2]</code>, <code>v[c(1,5)]</code>, <code>v[2:4]</code></p></div>
+    <div class="card rose"><span class="tag">negative numbers</span><h4>"everything except"</h4><p><code>v[-3]</code>, <code>v[c(-2,-3)]</code>, <code>v[-1]</code></p></div>
+    <div class="card teal"><span class="tag">TRUE / FALSE</span><h4>"keep where TRUE"</h4><p><code>v[c(T,T,F,F,T,F)]</code>, <code>v[v &gt; 12]</code></p></div>
+  </div>
+  <div class="code" data-label="Lec 1.R — indexing"><pre class="r">
+v &lt;- 10:15
+v[2]
+v[c(1,5)]
+v[-3]
+v[c(TRUE,TRUE,FALSE,FALSE,TRUE,FALSE)]
+v[c(T,T,F,F,T,F)]
+v[c(-2,-3)]
+v[-1]
+</pre><div class="out"><pre>[1] 11
+[1] 10 14
+[1] 10 11 13 14 15
+[1] 10 11 14
+[1] 10 11 14
+[1] 10 13 14 15
+[1] 11 12 13 14 15</pre></div></div>
+
+  <div class="widget" id="w-index">
+    <div class="w-head"><span class="w-badge">play</span><span class="w-title">Indexing playground — v &lt;- 10:15</span></div>
+    <div class="w-body">
+      <p class="hint">Type anything you would put between the brackets, or click a preset. Selected elements jump up and turn yellow; removed ones are crossed out.</p>
+      <div class="controls" style="font-family:var(--f-mono)">v[ <input class="txt" id="ix-in" value="c(1,5)" style="width:220px" aria-label="index expression"> ]</div>
+      <div class="controls" id="ix-presets"></div>
+      <div class="cells" id="ix-cells" style="margin-bottom:1.5rem"></div>
+      <div class="explain" id="ix-out"></div>
+    </div>
+  </div>
+  <div class="callout trap"><div class="c-title">Common mistakes</div>
+    <ul><li><code>v[1,5]</code> is <strong>wrong</strong> for a vector — the comma means "row, column" and only works on matrices. To get two elements use <code>v[c(1,5)]</code>.</li>
+    <li>You cannot mix positive and negative numbers: <code>v[c(-1, 3)]</code> gives an error.</li>
+    <li>Asking for a position that does not exist gives <code>NA</code>: <code>v[10]</code> → <code>NA</code>.</li></ul></div>
+</section>
+
+<!-- 7 -->
+<section class="section" id="s-recycle">
+  <div class="sec-head"><span class="sec-num">1.7</span><h2>Arithmetic between vectors — and recycling</h2></div>
+  <p>When you add two vectors, R works <strong>element by element</strong>: first with first, second with second, and so on.</p>
+  <div class="code" data-label="Lec 1.R — vector arithmetic"><pre class="r">
+v1 &lt;- c(1,2,3,5,1,2)
+v2 &lt;- c(4,5,6)
+v1 + v2
+v1 - v2
+v1 * v2
+</pre><div class="out"><pre>[1] 5 7 9 9 6 8
+[1] -3 -3 -3  1 -4 -4
+[1]  4 10 18 20  5 12</pre></div></div>
+  <p>But wait — <code>v1</code> has 6 elements and <code>v2</code> only 3! R handles this by <strong>recycling</strong>: it repeats the shorter vector from the start until it is long enough. So v2 behaves like (4, 5, 6, 4, 5, 6). Since 6 is a multiple of 3, this works silently.</p>
+  <div class="code" data-label="Lec 1.R — recycling with a warning"><pre class="r">
+v1 &lt;- c(1, 2, 3, 4, 5)
+v2 &lt;- c(1, 2)
+v1 + v2
+</pre><div class="out"><pre>[1] 2 4 4 6 6
+Warning message:
+In v1 + v2 :
+  longer object length is not a multiple of shorter object length</pre></div></div>
+  <p>Here 5 is <em>not</em> a multiple of 2, so v2 becomes (1, 2, 1, 2, 1) and R still gives an answer — but warns you, because this is usually a mistake.</p>
+
+  <div class="widget" id="w-recycle">
+    <div class="w-head"><span class="w-badge">play</span><span class="w-title">See recycling happen</span></div>
+    <div class="w-body">
+      <div class="controls"><span class="mono small">v1 =</span><input class="txt" id="rc-a" value="1,2,3,5,1,2" style="width:180px" aria-label="v1">
+        <select class="txt" id="rc-op" aria-label="operator"><option>+</option><option>-</option><option>*</option></select>
+        <span class="mono small">v2 =</span><input class="txt" id="rc-b" value="4,5,6" style="width:140px" aria-label="v2"></div>
+      <div class="controls"><button class="btn ghost" data-p="1,2,3,5,1,2|4,5,6">6 &amp; 3</button><button class="btn ghost" data-p="1,2,3,4,5|1,2">5 &amp; 2</button><button class="btn ghost" data-p="1,3,4,3|6">add a single number</button></div>
+      <div id="rc-view"></div>
+      <div class="explain" id="rc-exp"></div>
+    </div>
+  </div>
+  <div class="callout plain"><div class="c-title">in plain words</div><p><code>x + 6</code> from section 1.3 is recycling too: the single number 6 is a vector of length 1, so R repeats it for every element of x.</p></div>
+</section>
+
+<!-- 8 -->
+<section class="section" id="s-matrix">
+  <div class="sec-head"><span class="sec-num">1.8</span><h2>Matrices: data in rows and columns</h2></div>
+  <p>A <strong>matrix</strong> is a vector arranged into a rectangle of rows and columns. All entries must be the same type (all numbers, for example). You make one with <code>matrix(data, nrow, ncol, byrow)</code>.</p>
+  <div class="code" data-label="Lec 1.R — byrow TRUE vs FALSE"><pre class="r">
+M &lt;- matrix( c(1:6), nrow = 2, ncol = 3, byrow = TRUE)
+print(M)
+M &lt;- matrix( c(1:6), nrow = 2, ncol = 3, byrow = FALSE)
+M &lt;- matrix( c(1:6), nrow = 2, ncol = 3)
+print(M)
+</pre><div class="out"><pre>     [,1] [,2] [,3]
+[1,]    1    2    3
+[2,]    4    5    6
+
+     [,1] [,2] [,3]
+[1,]    1    3    5
+[2,]    2    4    6</pre></div></div>
+  <ul>
+    <li><code>byrow = TRUE</code>: fill the first row left-to-right, then the second row…</li>
+    <li><code>byrow = FALSE</code> (the <strong>default</strong>, so you can leave it out): fill the first column top-to-bottom, then the second column…</li>
+    <li>Labels like <code>[1,]</code> mean "row 1, all columns" and <code>[,2]</code> means "all rows, column 2". This is exactly the syntax you use to index (section 1.9).</li>
+  </ul>
+
+  <div class="widget" id="w-mbuild">
+    <div class="w-head"><span class="w-badge">play</span><span class="w-title">Matrix builder — watch the fill order</span></div>
+    <div class="w-body">
+      <div class="controls mono small">matrix(<input class="txt" id="mb-from" value="1" style="width:56px" aria-label="from">:<input class="txt" id="mb-to" value="6" style="width:56px" aria-label="to">, nrow = <input class="txt" id="mb-r" value="2" style="width:50px" aria-label="nrow">, ncol = <input class="txt" id="mb-c" value="3" style="width:50px" aria-label="ncol">, byrow = <span class="seg"><button class="btn on" data-b="1">TRUE</button><button class="btn" data-b="0">FALSE</button></span>)</div>
+      <div class="controls"><button class="btn primary" id="mb-play">▶ animate filling</button><button class="btn ghost" data-mp="1,2,4,4">matrix(1:2, 4, 4)</button><button class="btn ghost" data-mp="1,3,4,4">matrix(1:3, 4, 4)</button><button class="btn ghost" data-mp="10,21,4,3">matrix(10:21, nrow=4)</button></div>
+      <div class="mat-wrap"><div id="mb-grid"></div></div>
+      <div class="explain" id="mb-exp"></div>
+    </div>
+  </div>
+
+  <h3>Special matrices and recycling inside <code>matrix()</code></h3>
+  <div class="code" data-label="Lec 1.R"><pre class="r">
+matrix (1,nr= 5, nc=1)     # a column of five 1s
+matrix (0, 2, 2)           # 2x2 zero matrix
+matrix (1:2, 4, 4)         # 1,2 recycled 8 times
+matrix (1:3, 4, 4)         # 16 is not a multiple of 3!
+</pre><div class="out"><pre>     [,1]
+[1,]    1
+[2,]    1
+[3,]    1
+[4,]    1
+[5,]    1
+     [,1] [,2]
+[1,]    0    0
+[2,]    0    0
+     [,1] [,2] [,3] [,4]
+[1,]    1    1    1    1
+[2,]    2    2    2    2
+[3,]    1    1    1    1
+[4,]    2    2    2    2
+     [,1] [,2] [,3] [,4]
+[1,]    1    2    3    1
+[2,]    2    3    1    2
+[3,]    3    1    2    3
+[4,]    1    2    3    1
+Warning message:
+In matrix(1:3, 4, 4) :
+  data length [3] is not a sub-multiple or multiple of the number of rows [4]</pre></div></div>
+  <ul>
+    <li><code>nr</code> and <code>nc</code> are short for <code>nrow</code> and <code>ncol</code> — R accepts unambiguous abbreviations of argument names. <code>matrix(0, 2, 2)</code> passes them by <em>position</em> instead.</li>
+    <li>A single value is recycled to fill the whole matrix — handy for a <strong>vector of ones</strong> (you'll meet it again: it is the intercept column in regression) or a <strong>zero matrix</strong>.</li>
+  </ul>
+  <div class="callout warn"><div class="c-title">Watch out — the script's comment vs reality</div><p>The script says <code>matrix(1:3, 4, 4)</code> "was bound to fail". In current R it does <strong>not</strong> stop with an error: it fills the matrix anyway and only prints a <strong>warning</strong>. That is arguably worse — you get a strange matrix and might not notice. Always read warnings!</p></div>
+
+  <h3>Naming rows and columns</h3>
+  <div class="code" data-label="Lec 1.R — dimnames, colnames, rownames"><pre class="r">
+row_names = c("row1", "row2", "row3","row4")
+col_names = c("col1", "col2", "col3")
+M &lt;- matrix(c(10:21), nrow = 4, byrow = TRUE,
+            dimnames = list(row_names, col_names))
+print(M)
+colnames(M) &lt;- c('C1', 'C2', 'C3')
+rownames(M) &lt;- c('R1', 'R2', 'R3', 'R4')
+M
+</pre><div class="out"><pre>     col1 col2 col3
+row1   10   11   12
+row2   13   14   15
+row3   16   17   18
+row4   19   20   21
+   C1 C2 C3
+R1 10 11 12
+R2 13 14 15
+R3 16 17 18
+R4 19 20 21</pre></div></div>
+  <p><code>dimnames</code> takes a <strong>list</strong> of two things: first the row names, then the column names. Later you can rename with <code>colnames()</code> and <code>rownames()</code>. Named matrices are how R prints correlation matrices and regression coefficient tables, so this format will look familiar soon.</p>
+</section>
+
+<!-- 9 -->
+<section class="section" id="s-mindex">
+  <div class="sec-head"><span class="sec-num">1.9</span><h2>Indexing matrices: <code>M[row, column]</code></h2></div>
+  <p>A matrix needs <strong>two</strong> addresses separated by a comma: rows first, then columns. Leaving one side empty means "all of them".</p>
+  <div class="code" data-label="Lec 1.R — matrix indexing"><pre class="r">
+M &lt;- matrix(c(10:21), nrow = 4, byrow = TRUE)
+M[1,2]          # one element
+M[2,]           # the second row
+M[,2]           # the second column
+M[c(1, 3),]     # rows 1 and 3
+M[2:3, 3:1]     # rows 2-3, columns 3,2,1 (reversed!)
+</pre><div class="out"><pre>[1] 11
+[1] 13 14 15
+[1] 11 14 17 20
+     [,1] [,2] [,3]
+[1,]   10   11   12
+[2,]   16   17   18
+     [,1] [,2] [,3]
+[1,]   15   14   13
+[2,]   18   17   16</pre></div></div>
+  <div class="widget" id="w-mindex">
+    <div class="w-head"><span class="w-badge">play</span><span class="w-title">Matrix indexing — M &lt;- matrix(10:21, nrow = 4, byrow = TRUE)</span></div>
+    <div class="w-body">
+      <div class="controls mono">M[ <input class="txt" id="mi-r" value="2:3" style="width:110px" aria-label="rows"> , <input class="txt" id="mi-c" value="3:1" style="width:110px" aria-label="columns"> ]</div>
+      <div class="controls" id="mi-presets"></div>
+      <div class="mat-wrap"><div id="mi-grid"></div><span class="mat-op">→</span><div id="mi-res"></div></div>
+      <div class="explain" id="mi-exp"></div>
+    </div>
+  </div>
+  <div class="callout key"><div class="c-title">Remember</div><p>Taking a single row or column (<code>M[2,]</code>, <code>M[,2]</code>) returns a plain <strong>vector</strong>, printed with <code>[1]</code>. Taking two or more rows returns a <strong>matrix</strong>. This same <code>[rows, cols]</code> syntax works on data frames: <code>MyData[ ,1:7]</code> in Lecture 2 means "all rows, columns 1 to 7".</p></div>
+</section>
+
+<!-- 10 -->
+<section class="section" id="s-mmath">
+  <div class="sec-head"><span class="sec-num">1.10</span><h2>Matrix arithmetic: element-wise vs matrix product</h2></div>
+  <p>The ordinary operators <code>+ - * /</code> work <strong>element by element</strong>, exactly like with vectors: the cell in row i, column j of the result only uses the cells in row i, column j of the two inputs.</p>
+  <div class="code" data-label="Lec 1.R — element-wise operations"><pre class="r">
+M1 &lt;- matrix(c(10:21), nrow = 4, byrow = TRUE)
+M2 &lt;- matrix(c(0:11),  nrow = 4, byrow = TRUE)
+M1 + M2
+M1 * M2
+M1 / M2
+</pre><div class="out" data-label="R output (M1 / M2 shown)"><pre>         [,1]      [,2]     [,3]
+[1,]      Inf 11.000000 6.000000
+[2,] 4.333333  3.500000 3.000000
+[3,] 2.666667  2.428571 2.250000
+[4,] 2.111111  2.000000 1.909091</pre></div></div>
+  <p>Look at the top-left: 10 / 0 = <code>Inf</code> (infinity). R does not crash when you divide by zero — it returns <code>Inf</code> (or <code>NaN</code>, "not a number", for 0/0).</p>
+
+  <h3>The matrix product <code>%*%</code></h3>
+  <p>The "real" matrix multiplication from linear algebra is written <code>%*%</code>. To get cell (i, j) of <code>A %*% B</code> you take <strong>row i of A</strong> and <strong>column j of B</strong>, multiply them pair by pair, and add up. That only works if A has as many columns as B has rows (we say they are <em>conformable</em>).</p>
+  <div class="formula">$$ (AB)_{ij} = \sum_{k} A_{ik}\,B_{kj} \qquad\text{e.g. } (AA)_{11} = 0\cdot0 + 1\cdot3 + 2\cdot6 = 15 $$</div>
+  <div class="widget" id="w-prod">
+    <div class="w-head"><span class="w-badge">play</span><span class="w-title">A * A versus A %*% A — click any result cell</span></div>
+    <div class="w-body">
+      <div class="controls"><span class="seg"><button class="btn on" data-op="mm">A %*% A</button><button class="btn" data-op="ew">A * A</button></span></div>
+      <div class="mat-wrap"><div id="pr-a"></div><span class="mat-op" id="pr-sym">%*%</span><div id="pr-b"></div><span class="mat-op">=</span><div id="pr-c"></div></div>
+      <div class="explain" id="pr-exp"></div>
+    </div>
+  </div>
+  <div class="code" data-label="Lec 1.R — dot product, transpose, matrix product"><pre class="r">
+a &lt;- c(1:3)
+a %*% a          # 1*1 + 2*2 + 3*3
+a %*% t(a)       # column times row = 3x3 "outer product"
+t(a) %*% a
+A &lt;- matrix(0:8, nrow = 3, byrow = TRUE)
+A %*% a
+# A %*% t(a) # this is bound to fail!
+A %*% A
+A * A
+A + A
+</pre><div class="out"><pre>     [,1]
+[1,]   14
+     [,1] [,2] [,3]
+[1,]    1    2    3
+[2,]    2    4    6
+[3,]    3    6    9
+     [,1]
+[1,]   14
+     [,1]
+[1,]    8
+[2,]   26
+[3,]   44
+     [,1] [,2] [,3]
+[1,]   15   18   21
+[2,]   42   54   66
+[3,]   69   90  111
+     [,1] [,2] [,3]
+[1,]    0    1    4
+[2,]    9   16   25
+[3,]   36   49   64
+     [,1] [,2] [,3]
+[1,]    0    2    4
+[2,]    6    8   10
+[3,]   12   14   16</pre></div></div>
+  <ul>
+    <li><code>t()</code> = <strong>transpose</strong>: rows become columns. <code>t(a)</code> turns the vector into a 1×3 row.</li>
+    <li><code>a %*% a</code> = 1·1 + 2·2 + 3·3 = <strong>14</strong>, the <em>dot product</em>. R quietly treats the first <code>a</code> as a row and the second as a column.</li>
+    <li><code>a %*% t(a)</code>: (3×1) times (1×3) gives a 3×3 table of all pairwise products.</li>
+    <li><code>A %*% a</code>: (3×3) times (3×1) = 3×1. Row 2 of A is (3, 4, 5), so 3·1 + 4·2 + 5·3 = 26. ✓</li>
+    <li><code>A %*% t(a)</code> fails ("non-conformable arguments") because A has 3 columns but <code>t(a)</code> has only 1 row.</li>
+    <li>There is only one kind of addition: <code>A + A</code> is always element-wise.</li>
+  </ul>
+</section>
+
+<!-- 11 -->
+<section class="section" id="s-mfun">
+  <div class="sec-head"><span class="sec-num">1.11</span><h2>Functions on matrices: sums, inverse, determinant, binding</h2></div>
+  <p>Math functions such as <code>exp()</code>, <code>log()</code> and <code>sin()</code> are applied to <strong>every cell</strong>. Note <code>log(0) = -Inf</code>.</p>
+  <div class="code" data-label="Lec 1.R — functions that keep the shape"><pre class="r">
+A
+exp(A)
+log(A)
+</pre><div class="out collapsed"><pre>     [,1] [,2] [,3]
+[1,]    0    1    2
+[2,]    3    4    5
+[3,]    6    7    8
+          [,1]        [,2]        [,3]
+[1,]   1.00000    2.718282    7.389056
+[2,]  20.08554   54.598150  148.413159
+[3,] 403.42879 1096.633158 2980.957987
+         [,1]     [,2]      [,3]
+[1,]     -Inf 0.000000 0.6931472
+[2,] 1.098612 1.386294 1.6094379
+[3,] 1.791759 1.945910 2.0794415</pre></div></div>
+  <p>Other functions <strong>collapse</strong> the matrix: <code>colSums</code> gives one number per column, <code>rowSums</code> one per row, and <code>mean</code>/<code>min</code> one number for everything.</p>
+  <div class="code" data-label="Lec 1.R — functions that collapse"><pre class="r">
+colSums(A)
+rowSums(A)
+mean(A)
+min(A)
+</pre><div class="out"><pre>[1]  9 12 15
+[1]  3 12 21
+[1] 4
+[1] 0</pre></div></div>
+
+  <h3>Inverse and determinant</h3>
+  <p>For numbers, the inverse of 4 is 1/4 because 4 × ¼ = 1. For a square matrix M, the <strong>inverse</strong> M⁻¹ is the matrix with M⁻¹M = <strong>I</strong> (the identity matrix: 1s on the diagonal, 0s elsewhere). In R: <code>solve(M)</code>. The <strong>determinant</strong> <code>det(M)</code> is a single number; if it is 0 the matrix has no inverse.</p>
+  <div class="code" data-label="Lec 1.R — diag, solve, det"><pre class="r">
+M &lt;- matrix(c(1,1,4,1,2,3,3,2,1), 3, 3)
+M
+diag(M)
+solve(M)
+round( solve(M)%*%M , 5)
+det(M)
+</pre><div class="out"><pre>     [,1] [,2] [,3]
+[1,]    1    1    3
+[2,]    1    2    2
+[3,]    4    3    1
+[1] 1 2 1
+           [,1]        [,2]        [,3]
+[1,]  0.3333333 -0.66666667  0.33333333
+[2,] -0.5833333  0.91666667 -0.08333333
+[3,]  0.4166667 -0.08333333 -0.08333333
+     [,1] [,2] [,3]
+[1,]    1    0    0
+[2,]    0    1    0
+[3,]    0    0    1
+[1] -12</pre></div></div>
+  <ul>
+    <li>The data was filled <strong>by column</strong> (default), so the first column is (1, 1, 4).</li>
+    <li><code>diag(M)</code> = the diagonal entries (1, 2, 1).</li>
+    <li><code>round(…, 5)</code> is used because computers store decimals imperfectly: without rounding you might see tiny numbers like <code>2.2e-16</code> instead of exact 0.</li>
+  </ul>
+  <div class="code" data-label="Lec 1.R — size, means, rbind and cbind"><pre class="r">
+nrow(M); ncol(M)
+colSums(M); rowSums(M)
+colMeans(M); rowMeans(M); mean(M)
+rbind(M, M)      # stack vertically  (6 x 3)
+cbind(M, M)      # glue side by side (3 x 6)
+cbind(M, 1)      # add a column of 1s
+rbind(M, -1)     # add a row of -1s
+</pre><div class="out collapsed"><pre>[1] 3
+[1] 3
+[1] 6 6 6
+[1] 5 5 8
+[1] 2 2 2
+[1] 1.666667 1.666667 2.666667
+[1] 2
+     [,1] [,2] [,3]
+[1,]    1    1    3
+[2,]    1    2    2
+[3,]    4    3    1
+[4,]    1    1    3
+[5,]    1    2    2
+[6,]    4    3    1
+     [,1] [,2] [,3] [,4] [,5] [,6]
+[1,]    1    1    3    1    1    3
+[2,]    1    2    2    1    2    2
+[3,]    4    3    1    4    3    1
+     [,1] [,2] [,3] [,4]
+[1,]    1    1    3    1
+[2,]    1    2    2    1
+[3,]    4    3    1    1
+     [,1] [,2] [,3]
+[1,]    1    1    3
+[2,]    1    2    2
+[3,]    4    3    1
+[4,]   -1   -1   -1</pre></div></div>
+  <p><strong>r</strong>bind = bind as <strong>r</strong>ows (stack on top), <strong>c</strong>bind = bind as <strong>c</strong>olumns (side by side). <code>cbind(M, 1)</code> recycles the single 1 down a new column.</p>
+</section>
+
+<!-- 12 -->
+<section class="section" id="s-why">
+  <div class="sec-head"><span class="sec-num">1.12</span><h2>Why all this matrix stuff? A sneak peek at regression</h2></div>
+  <p>It can feel like Lecture 1 is pure programming. It isn't: every function you just learned is exactly what R uses internally to fit a regression line. In Lecture 3 you will see the <strong>Ordinary Least Squares</strong> formula. In matrix form it is:</p>
+  <div class="formula">$$ \hat{\boldsymbol\beta} = (X^\top X)^{-1} X^\top y $$<span class="f-cap">X = data matrix with a column of 1s (for the intercept), y = response vector</span></div>
+  <p>Read it with Lecture 1 eyes: <code>cbind(1, x)</code> builds X (a column of ones glued to the data), <code>t()</code> transposes, <code>%*%</code> multiplies, and <code>solve()</code> inverts. Here it is on the study-hours data from Lecture 3:</p>
+  <div class="code" data-label="Lecture 1 tools → a regression"><pre class="r">
+hours  &lt;- c(2, 4, 6, 8, 10, 3, 5, 7, 9, 11)
+scores &lt;- c(60, 70, 80, 85, 90, 65, 75, 82, 88, 92)
+X &lt;- cbind(1, hours)                       # 10 x 2 design matrix
+solve(t(X) %*% X) %*% t(X) %*% scores      # (X'X)^-1 X'y
+</pre><div class="out"><pre>           [,1]
+      55.654545
+hours  3.545455</pre></div></div>
+  <p>Those two numbers — intercept 55.65 and slope 3.55 — are <em>exactly</em> what <code>lm(scores ~ hours)</code> reports in Lecture 3. You have just fitted a regression line with nothing but Lecture 1!</p>
+</section>
+
+<!-- quiz -->
+<section class="section" id="s-quiz">
+  <div class="sec-head"><span class="sec-num">✓</span><h2>Check yourself</h2></div>
+  <div class="quiz" data-id="l1">
+    <div class="quiz-top"><h3>Lecture 1 quiz</h3><span class="quiz-score"></span></div>
+    <div class="q" data-a="2"><div class="q-text">What does <code>v[-3]</code> return if <code>v &lt;- 10:15</code>?</div>
+      <div class="q-opts"><button class="q-opt">12</button><button class="q-opt">10 11 12</button><button class="q-opt">10 11 13 14 15</button><button class="q-opt">An error — negative positions don't exist</button></div>
+      <div class="q-fb">A negative index means "everything <em>except</em> that position". Position 3 holds 12, so it is dropped.</div></div>
+    <div class="q" data-a="1"><div class="q-text"><code>mean(c(4, NA, 8))</code> returns…</div>
+      <div class="q-opts"><button class="q-opt">6</button><button class="q-opt">NA</button><button class="q-opt">4</button><button class="q-opt">An error</button></div>
+      <div class="q-fb">One unknown value makes the mean unknown. You need <code>mean(c(4, NA, 8), na.rm = TRUE)</code> to get 6.</div></div>
+    <div class="q" data-a="3"><div class="q-text">What is <code>c(1, 2, 3, 4) + c(10, 20)</code>?</div>
+      <div class="q-opts"><button class="q-opt">11 22 3 4</button><button class="q-opt">An error</button><button class="q-opt">31 32 33 34</button><button class="q-opt">11 22 13 24</button></div>
+      <div class="q-fb">Recycling: (10, 20) is repeated to (10, 20, 10, 20). No warning, because 4 is a multiple of 2.</div></div>
+    <div class="q" data-a="0"><div class="q-text"><code>matrix(1:6, nrow = 2)</code> — what is its first row?</div>
+      <div class="q-opts"><button class="q-opt">1 3 5</button><button class="q-opt">1 2 3</button><button class="q-opt">1 2</button><button class="q-opt">1 4</button></div>
+      <div class="q-fb">The default is <code>byrow = FALSE</code>, so R fills column by column: column 1 = (1, 2), column 2 = (3, 4), column 3 = (5, 6). Row 1 is therefore 1 3 5.</div></div>
+    <div class="q" data-a="1"><div class="q-text">For <code>M &lt;- matrix(10:21, nrow = 4, byrow = TRUE)</code>, what does <code>M[,2]</code> give?</div>
+      <div class="q-opts"><button class="q-opt">13 14 15</button><button class="q-opt">11 14 17 20</button><button class="q-opt">The element 11</button><button class="q-opt">Rows 1 and 2</button></div>
+      <div class="q-fb">Empty before the comma = all rows; 2 after the comma = column 2.</div></div>
+    <div class="q" data-a="2"><div class="q-text">A is 3×3. Which of these fails?</div>
+      <div class="q-opts"><button class="q-opt"><code>A %*% A</code></button><button class="q-opt"><code>A * A</code></button><button class="q-opt"><code>A %*% matrix(1, 1, 3)</code> (a 1×3 matrix)</button><button class="q-opt"><code>A %*% c(1, 2, 3)</code></button></div>
+      <div class="q-fb">For <code>%*%</code> the number of columns of the left matrix (3) must equal the number of rows of the right one. A 1×3 matrix has only 1 row → "non-conformable arguments". A plain vector of length 3 is treated as a 3×1 column, so the last option works.</div></div>
+    <div class="q" data-a="0"><div class="q-text">What does <code>solve(M)</code> compute?</div>
+      <div class="q-opts"><button class="q-opt">The inverse of M</button><button class="q-opt">The determinant of M</button><button class="q-opt">The transpose of M</button><button class="q-opt">It solves M = 0</button></div>
+      <div class="q-fb"><code>solve(M)</code> returns M⁻¹, so that <code>solve(M) %*% M</code> is the identity matrix. <code>det()</code> gives the determinant and <code>t()</code> the transpose.</div></div>
+    <div class="q" data-a="3"><div class="q-text">After <code>x &lt;- 11:100</code>, what is <code>x[69]</code>?</div>
+      <div class="q-opts"><button class="q-opt">69</button><button class="q-opt">80</button><button class="q-opt">68</button><button class="q-opt">79</button></div>
+      <div class="q-fb">x starts at 11, so element k equals k + 10. Element 69 → 79.</div></div>
+    <div class="controls"><button class="btn ghost quiz-reset">↺ try again</button></div>
+  </div>
+</section>
+
+<section class="section" id="s-sum">
+  <div class="sec-head"><span class="sec-num">★</span><h2>Summary</h2></div>
+  <div class="takeaways"><ul>
+    <li><code>&lt;-</code> stores a value; <code>c()</code> builds a vector; <code>a:b</code> makes a sequence.</li>
+    <li>Arithmetic on vectors is element-wise; a shorter vector is <strong>recycled</strong> (warning if lengths don't fit).</li>
+    <li><code>NA</code> = missing. Most summaries return NA unless you add <code>na.rm = TRUE</code>.</li>
+    <li>Index vectors with <code>v[ ]</code>: positive = take, negative = drop, logical = keep where TRUE.</li>
+    <li><code>matrix(data, nrow, ncol, byrow)</code> — default fills by column. Index with <code>M[row, col]</code>; empty = all.</li>
+    <li><code>*</code> is element-wise, <code>%*%</code> is the matrix product, <code>t()</code> transposes, <code>solve()</code> inverts, <code>det()</code> gives the determinant.</li>
+    <li>These tools are the engine of regression: \(\hat\beta = (X^\top X)^{-1}X^\top y\).</li>
+  </ul></div>
+</section>
+
+<div id="lec-nav"></div>
+</main>
+</div>
+
+<script>
+document.addEventListener('ds:ready', () => {
+  const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+  const esc = window.DS_ESC;
+
+  /* ---- mini evaluator for index expressions on integer vectors ---- */
+  function parseIdx(expr, vec, len) {
+    expr = expr.trim();
+    if (expr === '') return { all: true };
+    // comparison with v (or x)
+    let m = /^[vx]\s*(>=|<=|==|!=|>|<)\s*(-?\d+(?:\.\d+)?)$/.exec(expr);
+    if (m && vec) { const k = +m[2]; const f = { '>': a => a > k, '<': a => a < k, '>=': a => a >= k, '<=': a => a <= k, '==': a => a === k, '!=': a => a !== k }[m[1]]; return { logical: vec.map(f) }; }
+    const items = [];
+    const inner = /^c\((.*)\)$/.exec(expr);
+    const parts = inner ? inner[1].split(',') : [expr];
+    for (let p of parts) {
+      p = p.trim(); if (!p) continue;
+      if (/^(TRUE|FALSE|T|F)$/.test(p)) { items.push(p[0] === 'T'); continue; }
+      const r = /^(-?)\(?\s*(-?\d+)\s*:\s*(-?\d+)\s*\)?$/.exec(p);
+      if (r) { let a = +r[2], b = +r[3]; const seq = []; if (a <= b) for (let i = a; i <= b; i++) seq.push(i); else for (let i = a; i >= b; i--) seq.push(i); seq.forEach(v => items.push(r[1] ? -v : v)); continue; }
+      if (/^-?\d+$/.test(p)) { items.push(+p); continue; }
+      throw new Error('I only understand numbers, a:b, c(...), TRUE/FALSE or v > number here');
+    }
+    if (items.length && items.every(i => typeof i === 'boolean')) return { logical: items };
+    if (items.some(i => typeof i === 'boolean')) throw new Error('mixing numbers and TRUE/FALSE');
+    const pos = items.filter(i => i > 0), neg = items.filter(i => i < 0);
+    if (pos.length && neg.length) throw new Error("can't mix positive and negative subscripts");
+    if (neg.length) return { drop: neg.map(i => -i) };
+    return { take: pos };
+  }
+  function applyIdx(spec, len) {
+    if (spec.all) return Array.from({ length: len }, (_, i) => i + 1);
+    if (spec.logical) { const L = spec.logical; const out = []; const n = Math.max(len, L.length); for (let i = 0; i < n; i++) if (L[i % L.length]) out.push(i + 1); return out; }
+    if (spec.drop) return Array.from({ length: len }, (_, i) => i + 1).filter(i => !spec.drop.includes(i));
+    return spec.take;
+  }
+
+  /* ---- NA widget ---- */
+  (function () {
+    let v = [1, 2, 3, null];
+    const cells = $('#na-cells'), exp = $('#na-exp');
+    const draw = () => cells.innerHTML = v.map((x, i) => `<div class="cell ${x === null ? 'na' : ''}">${x === null ? 'NA' : x}<small>[${i + 1}]</small></div>`).join('');
+    draw();
+    $$('#w-na .btn').forEach(b => b.addEventListener('click', () => {
+      const a = b.dataset.act;
+      if (a === 'reset') { v = [1, 2, 3, null]; exp.innerHTML = 'v1 is back to c(1, 2, 3, NA).'; }
+      if (a === 'fill') { v[3] = 10; exp.innerHTML = '<b>v1[4] = 10</b> replaces the missing value. Now every value is known.'; }
+      if (a === 'mean') {
+        exp.innerHTML = v.includes(null) ? '<b>[1] NA</b> — one value is unknown, so R says the mean is unknown too.' :
+          `<b>[1] ${S.fmt(S.mean(v), 4)}</b> — (${v.join(' + ')}) / ${v.length}`;
+      }
+      if (a === 'narm') {
+        const k = v.filter(x => x !== null);
+        exp.innerHTML = `<b>[1] ${S.fmt(S.mean(k), 4)}</b> — NA removed first, then (${k.join(' + ')}) / ${k.length}` + (k.length < v.length ? '. Note we now divide by ' + k.length + ', not ' + v.length + '.' : '.');
+      }
+      draw();
+    }));
+  })();
+
+  /* ---- indexing playground ---- */
+  (function () {
+    const v = [10, 11, 12, 13, 14, 15];
+    const inp = $('#ix-in'), cells = $('#ix-cells'), out = $('#ix-out');
+    const presets = ['2', 'c(1,5)', '-3', 'c(-2,-3)', '-1', 'c(T,T,F,F,T,F)', 'c(TRUE,FALSE)', 'v > 12', '2:4', '6:1', '10'];
+    $('#ix-presets').innerHTML = presets.map(p => `<button class="btn ghost">v[${esc(p)}]</button>`).join('');
+    $$('#ix-presets .btn').forEach((b, i) => b.addEventListener('click', () => { inp.value = presets[i]; run(); }));
+    function run() {
+      let spec, idx;
+      try { spec = parseIdx(inp.value, v, v.length); idx = applyIdx(spec, v.length); }
+      catch (e) { cells.innerHTML = v.map((x, i) => `<div class="cell">${x}<small>[${i + 1}]</small></div>`).join(''); out.innerHTML = `<b>Error:</b> ${esc(e.message)}`; return; }
+      cells.innerHTML = v.map((x, i) => {
+        const k = i + 1, sel = idx.includes(k);
+        const cls = spec.drop ? (sel ? '' : 'drop') : (sel ? 'sel' : '');
+        return `<div class="cell ${cls}">${x}<small>[${k}]</small></div>`;
+      }).join('');
+      const res = idx.map(k => (k >= 1 && k <= v.length ? v[k - 1] : 'NA'));
+      let why = '';
+      if (spec.logical) why = spec.logical.length < v.length ? `The TRUE/FALSE vector has length ${spec.logical.length}, so it is <b>recycled</b> to length 6, then elements at TRUE positions are kept.` : 'Elements at TRUE positions are kept, FALSE positions are skipped.' + (/[<>=]/.test(inp.value) ? ` First R evaluates <code>${esc(inp.value)}</code> → (${spec.logical.map(b => b ? 'TRUE' : 'FALSE').join(', ')}).` : '');
+      else if (spec.drop) why = `Negative numbers <b>drop</b> positions ${spec.drop.join(', ')} and keep the rest.`;
+      else if (spec.take) why = `Take positions ${spec.take.join(', ')} in that order.` + (spec.take.some(k => k > v.length) ? ' A position beyond the end gives <b>NA</b>.' : '');
+      out.innerHTML = `<span class="mono">&gt; v[${esc(inp.value)}]<br>[1] ${res.join(' ')}</span><br>${why}`;
+    }
+    inp.addEventListener('input', run); run();
+  })();
+
+  /* ---- recycling ---- */
+  (function () {
+    const A = $('#rc-a'), B = $('#rc-b'), op = $('#rc-op'), view = $('#rc-view'), exp = $('#rc-exp');
+    $$('#w-recycle [data-p]').forEach(b => b.addEventListener('click', () => { const [x, y] = b.dataset.p.split('|'); A.value = x; B.value = y; run(); }));
+    function nums(s) { return s.split(',').map(t => t.trim()).filter(Boolean).map(Number); }
+    function run() {
+      const a = nums(A.value), b = nums(B.value);
+      if (!a.length || !b.length || a.concat(b).some(isNaN)) { view.innerHTML = ''; exp.textContent = 'Type comma-separated numbers.'; return; }
+      const n = Math.max(a.length, b.length);
+      const f = { '+': (x, y) => x + y, '-': (x, y) => x - y, '*': (x, y) => x * y }[op.value];
+      const row = (lab, arr, short) => `<div class="cell-row"><span class="lab">${lab}</span><div class="cells">${Array.from({ length: n }, (_, i) => `<div class="cell ${i >= arr.length ? 'recyc' : ''}">${arr[i % arr.length]}</div>`).join('')}</div></div>`;
+      const res = Array.from({ length: n }, (_, i) => f(a[i % a.length], b[i % b.length]));
+      view.innerHTML = row('v1', a) + row('v2', b) + `<div class="cell-row"><span class="lab">v1 ${op.value} v2</span><div class="cells">${res.map(r => `<div class="cell sel">${+r.toFixed(4)}</div>`).join('')}</div></div>`;
+      const short = a.length < b.length ? 'v1' : 'v2', ls = Math.min(a.length, b.length);
+      if (a.length === b.length) exp.innerHTML = 'Same length — no recycling needed, R simply pairs element 1 with 1, 2 with 2, …';
+      else if (n % ls === 0) exp.innerHTML = `<b>${short}</b> (length ${ls}) is recycled ${n / ls} times to reach length ${n}. Dashed cells are the repeated copies. ${n} is a multiple of ${ls}, so <b>no warning</b>.`;
+      else exp.innerHTML = `<b>${short}</b> (length ${ls}) is recycled to length ${n}, but ${n} is <b>not</b> a multiple of ${ls}. R still answers, plus: <span class="mono" style="color:var(--red)">Warning: longer object length is not a multiple of shorter object length</span>`;
+    }
+    [A, B, op].forEach(e => e.addEventListener('input', run)); run();
+  })();
+
+  /* ---- matrix builder ---- */
+  (function () {
+    let byrow = true, timer = null;
+    const F = $('#mb-from'), T = $('#mb-to'), R = $('#mb-r'), C = $('#mb-c'), grid = $('#mb-grid'), exp = $('#mb-exp');
+    $$('#w-mbuild [data-b]').forEach(b => b.addEventListener('click', () => { byrow = b.dataset.b === '1'; $$('#w-mbuild [data-b]').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
+    $$('#w-mbuild [data-mp]').forEach(b => b.addEventListener('click', () => { const [f, t, r, c] = b.dataset.mp.split(','); F.value = f; T.value = t; R.value = r; C.value = c; byrow = f === '10'; $$('#w-mbuild [data-b]').forEach(x => x.classList.toggle('on', (x.dataset.b === '1') === byrow)); draw(); }));
+    function cfg() { const f = +F.value, t = +T.value, r = Math.max(1, Math.min(8, +R.value || 1)), c = Math.max(1, Math.min(8, +C.value || 1)); const data = []; if (f <= t) for (let i = f; i <= t; i++) data.push(i); else for (let i = f; i >= t; i--) data.push(i); return { data: data.slice(0, 64), r, c }; }
+    function draw(step) {
+      const { data, r, c } = cfg(); const N = r * c;
+      const cells = []; // cells[row][col] = {val, order}
+      for (let k = 0; k < N; k++) {
+        const row = byrow ? Math.floor(k / c) : k % r, col = byrow ? k % c : Math.floor(k / r);
+        (cells[row] = cells[row] || [])[col] = { v: data[k % data.length], k };
+      }
+      grid.innerHTML = `<div class="mgrid" style="grid-template-columns:repeat(${c},auto)">` +
+        cells.flat().map(o => `<div class="cell ${step !== undefined && o.k === step ? 'sel' : ''}" style="${step !== undefined && o.k > step ? 'opacity:.15' : ''}">${o.v}<small>${o.k + 1}</small></div>`).join('') + '</div>';
+      const L = data.length;
+      let msg = `R fills <b>${byrow ? 'row by row' : 'column by column'}</b> (small grey numbers = fill order). ${L} values for ${N} cells.`;
+      if (L === N) msg += ' Perfect fit.';
+      else if (L < N && N % L === 0) msg += ` The data is recycled ${N / L} times — no warning.`;
+      else if (L > N) msg += ` Only the first ${N} values are used.`;
+      else msg += ` <span style="color:var(--red)">${N} is not a multiple of ${L}, so R recycles and prints a <b>warning</b> (not an error).</span>`;
+      exp.innerHTML = msg;
+    }
+    $('#mb-play').addEventListener('click', () => {
+      clearInterval(timer); const N = cfg().r * cfg().c; let k = 0; draw(0);
+      timer = setInterval(() => { k++; if (k >= N) { clearInterval(timer); draw(); } else draw(k); }, 380);
+    });
+    [F, T, R, C].forEach(e => e.addEventListener('input', () => draw())); draw();
+  })();
+
+  /* ---- matrix indexing ---- */
+  (function () {
+    const M = [[10, 11, 12], [13, 14, 15], [16, 17, 18], [19, 20, 21]];
+    const ri = $('#mi-r'), ci = $('#mi-c'), g = $('#mi-grid'), res = $('#mi-res'), exp = $('#mi-exp');
+    const presets = [['1', '2'], ['2', ''], ['', '2'], ['c(1,3)', ''], ['2:3', '3:1'], ['-1', 'c(1,3)']];
+    $('#mi-presets').innerHTML = presets.map(p => `<button class="btn ghost">M[${p[0]},${p[1]}]</button>`).join('');
+    $$('#mi-presets .btn').forEach((b, i) => b.addEventListener('click', () => { ri.value = presets[i][0]; ci.value = presets[i][1]; run(); }));
+    function run() {
+      let rows, cols;
+      try { rows = applyIdx(parseIdx(ri.value, null, 4), 4); cols = applyIdx(parseIdx(ci.value, null, 3), 3); }
+      catch (e) { exp.innerHTML = '<b>Error:</b> ' + esc(e.message); return; }
+      if (rows.some(r => r > 4) || cols.some(c => c > 3)) { exp.innerHTML = '<b>Error:</b> subscript out of bounds — M only has 4 rows and 3 columns.'; return; }
+      g.innerHTML = `<div class="mgrid" style="grid-template-columns:repeat(3,auto)">` + M.flatMap((row, i) => row.map((v, j) => {
+        const s = rows.includes(i + 1) && cols.includes(j + 1);
+        return `<div class="cell ${s ? 'sel' : rows.includes(i + 1) ? 'hlr' : cols.includes(j + 1) ? 'hlc' : ''}">${v}<small>${i + 1},${j + 1}</small></div>`;
+      })).join('') + '</div>';
+      const out = rows.map(r => cols.map(c => M[r - 1][c - 1]));
+      if (rows.length === 1 || cols.length === 1) {
+        res.innerHTML = `<div class="cells">${out.flat().map(v => `<div class="cell sel">${v}</div>`).join('')}</div>`;
+        exp.innerHTML = `Result is a plain <b>vector</b>: <span class="mono">[1] ${out.flat().join(' ')}</span>. Rows used: ${rows.join(', ')}; columns used: ${cols.join(', ')} (in that order).`;
+      } else {
+        res.innerHTML = `<div class="mgrid" style="grid-template-columns:repeat(${cols.length},auto)">${out.flat().map(v => `<div class="cell sel">${v}</div>`).join('')}</div>`;
+        exp.innerHTML = `Result is a <b>${rows.length}×${cols.length} matrix</b>. Rows in order ${rows.join(', ')}; columns in order ${cols.join(', ')}.` + (cols.join() !== cols.slice().sort().join() ? ' Columns come out in the order you asked — that is how <code>3:1</code> reverses them.' : '');
+      }
+    }
+    [ri, ci].forEach(e => e.addEventListener('input', run)); run();
+  })();
+
+  /* ---- product explorer ---- */
+  (function () {
+    const A = [[0, 1, 2], [3, 4, 5], [6, 7, 8]];
+    let mode = 'mm', pick = [0, 0];
+    const mm = (i, j) => A[i][0] * A[0][j] + A[i][1] * A[1][j] + A[i][2] * A[2][j];
+    const ew = (i, j) => A[i][j] * A[i][j];
+    function mat(id, f, hl) {
+      return `<div class="mgrid" style="grid-template-columns:repeat(3,auto)">` + [0, 1, 2].flatMap(i => [0, 1, 2].map(j => `<div class="cell ${hl(i, j)}" data-i="${i}" data-j="${j}" style="${id === 'c' ? 'cursor:pointer' : ''}">${f(i, j)}</div>`)).join('') + '</div>';
+    }
+    function draw() {
+      const [pi, pj] = pick;
+      $('#pr-sym').textContent = mode === 'mm' ? '%*%' : '*';
+      $('#pr-a').innerHTML = mat('a', (i, j) => A[i][j], (i, j) => (mode === 'mm' ? (i === pi ? 'hlr' : '') : (i === pi && j === pj ? 'hlr' : '')));
+      $('#pr-b').innerHTML = mat('b', (i, j) => A[i][j], (i, j) => (mode === 'mm' ? (j === pj ? 'hlc' : '') : (i === pi && j === pj ? 'hlc' : '')));
+      $('#pr-c').innerHTML = mat('c', mode === 'mm' ? mm : ew, (i, j) => (i === pi && j === pj ? 'sel' : ''));
+      $$('#pr-c .cell').forEach(c => c.addEventListener('click', () => { pick = [+c.dataset.i, +c.dataset.j]; draw(); }));
+      $('#pr-exp').innerHTML = mode === 'mm'
+        ? `Cell [${pi + 1},${pj + 1}] = <span style="color:var(--blue)">row ${pi + 1} of A</span> · <span style="color:#b07508">column ${pj + 1} of A</span> = ${[0, 1, 2].map(k => `${A[pi][k]}×${A[k][pj]}`).join(' + ')} = <b>${mm(pi, pj)}</b>`
+        : `Cell [${pi + 1},${pj + 1}] = A[${pi + 1},${pj + 1}] × A[${pi + 1},${pj + 1}] = ${A[pi][pj]}×${A[pi][pj]} = <b>${ew(pi, pj)}</b>. Element-wise: each cell only looks at its own position.`;
+    }
+    $$('#w-prod [data-op]').forEach(b => b.addEventListener('click', () => { mode = b.dataset.op; $$('#w-prod [data-op]').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
+    draw();
+  })();
+});
+</script>
+</body>
+</html>
