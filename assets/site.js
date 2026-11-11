@@ -8,6 +8,7 @@
     { id: 'l2', href: 'lecture2.html', short: 'L2', title: 'Regression Modeling: Home Prices' },
     { id: 'l3', href: 'lecture3.html', short: 'L3', title: 'Correlation & Simple Regression (OLS)' },
     { id: 'l4', href: 'lecture4.html', short: 'L4', title: 'Missing Data in Regression' },
+    { id: 'l5', href: 'lecture5.html', short: 'L5', title: 'Outliers & Robust Regression' },
     { id: 'ref', href: 'reference.html', short: 'Cheat sheet', title: 'Cheat sheet' }
   ];
   window.DS_PAGES = PAGES;
@@ -425,6 +426,7 @@
         const files = [];
         if (window.DS_HOME) { await webR.FS.writeFile('/home/web_user/Home Price.csv', enc(window.DS_HOME)); files.push('Home Price.csv'); }
         if (window.DS_MISSING) { await webR.FS.writeFile('/home/web_user/dataset with missing.csv', enc(window.DS_MISSING.csv)); files.push('dataset with missing.csv'); }
+        if (window.DS_OUTLIERS) { await webR.FS.writeFile('/home/web_user/dataset_outliers.csv', enc(window.DS_OUTLIERS)); files.push('dataset_outliers.csv'); }
         this.webR = webR;
         this.shelter = await new webR.Shelter();
         this.dot.className = 'dot ready';
@@ -451,6 +453,15 @@
       this.dot.className = 'dot busy';
       // windows() opens a plot window in desktop R; in the browser plots appear inline instead
       const src = code.replace(/^\s*windows\s*\([^)]*\)\s*$/gm, '# windows() not needed here');
+      // webR ships only base R: fetch any package the code loads before running it
+      const pkgs = [...new Set([...src.matchAll(/(?:library|require)\s*\(\s*["']?([A-Za-z][\w.]*)["']?\s*\)/g)].map(m => m[1]))];
+      for (const p of pkgs) {
+        const have = await this.webR.evalRBoolean(`requireNamespace("${p}", quietly = TRUE)`);
+        if (!have) {
+          this.print(`(downloading the ${p} package into the browser — first time only…)\n`, 'sys');
+          await this.webR.evalRVoid(`webr::install("${p}", quiet = TRUE)`);
+        }
+      }
       try {
         const res = await this.shelter.captureR(src, {
           withAutoprint: true, captureStreams: true, captureConditions: false,

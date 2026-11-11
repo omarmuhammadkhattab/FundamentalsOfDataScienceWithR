@@ -12,6 +12,7 @@ Interactive study notes for DS550 (Diploma in Data Science, semester 2). Every R
 | 02 | Regression modeling: correlation matrices, multiple regression, `anova`, residual analysis |
 | 03 | Correlation coefficient, its t-test, simple linear regression and OLS, prediction intervals |
 | 04 | Missing data in regression: `md.pattern`, mean imputation, multiple imputation with `mice`, AIC/BIC |
+| 05 | Outliers and robust regression: diagnostic tests (`harvtest`, `gqtest`), M, S and MM estimators with `rlm` and `lqs` |
 | ✎ | Cheat sheet: R functions, formulas, hypothesis tests and interpretation templates |
 
 ## Features

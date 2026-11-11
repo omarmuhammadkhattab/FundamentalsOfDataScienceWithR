@@ -94,6 +94,17 @@
     <tr><td class="mono">mice(d, m = 10, method = "pmm" | "cart" | "rf" | "norm")</td><td>multiple imputation by chained equations</td><td>4</td></tr>
     <tr><td class="mono">complete(imp)</td><td>first completed dataset</td><td>4</td></tr>
     <tr><td class="mono">pool(with(imp, lm(y ~ x)))</td><td>analyse all m datasets and combine (Rubin's rules)</td><td>4</td></tr>
+    <tr class="grp"><td colspan="3">outliers &amp; robust regression</td></tr>
+    <tr><td class="mono">bp = boxplot(y); bp$out</td><td>boxplot and the values it flags as outliers (Q1/Q3 ± 1.5·IQR)</td><td>5</td></tr>
+    <tr><td class="mono">IQR(y) · median(y) ± 1.5 * IQR(y)</td><td>interquartile range · median-based outlier fences (resist masking)</td><td>5</td></tr>
+    <tr><td class="mono">harvtest(fit, order.by = ~ x)</td><td>lmtest: Harvey–Collier test of H₀: linear</td><td>5</td></tr>
+    <tr><td class="mono">gqtest(fit, order.by = ~ x)</td><td>lmtest: Goldfeld–Quandt test of H₀: constant variance</td><td>5</td></tr>
+    <tr><td class="mono">rlm(y ~ x, psi = psi.bisquare)</td><td>MASS: robust M-estimator, Tukey bisquare weights</td><td>5</td></tr>
+    <tr><td class="mono">rlm(y ~ x, psi = psi.huber)</td><td>MASS: robust M-estimator, Huber weights (the default)</td><td>5</td></tr>
+    <tr><td class="mono">lqs(y ~ x, method = "S")</td><td>MASS: S-estimator (50% breakdown point)</td><td>5</td></tr>
+    <tr><td class="mono">rlm(y ~ x, method = "MM")</td><td>MASS: MM-estimator (S start + bisquare M-step)</td><td>5</td></tr>
+    <tr><td class="mono">fit$w</td><td>weights each observation got in an rlm fit (0 = ignored)</td><td>5</td></tr>
+    <tr><td class="mono">par(mfcol = c(2, 2)) · par(mfcol = c(1, 1))</td><td>2×2 plot grid (filled by column) · reset to one plot</td><td>5</td></tr>
     <tr><td class="mono">install.packages("pkg") · library(pkg)</td><td>install once · load each session</td><td>2</td></tr>
   </table></div>
 </section>
@@ -115,6 +126,8 @@
     <div class="formula">$$ \hat y_0\pm t\,s\sqrt{1+\tfrac1n+\tfrac{(x_0-\bar x)^2}{S_{xx}}} $$<span class="f-cap">prediction interval for one case</span></div>
     <div class="formula">$$ AIC=2k-2\ln L,\quad BIC=k\ln n-2\ln L $$<span class="f-cap">lower is better</span></div>
     <div class="formula">$$ \text{simple regression: } R^2=r^2,\;F=t^2 $$<span class="f-cap">handy checks</span></div>
+    <div class="formula">$$ \min_{\beta}\sum_i \rho\!\left(\frac{y_i-x_i^\top\beta}{s}\right) $$<span class="f-cap">M-estimation (OLS is ρ(u) = u²)</span></div>
+    <div class="formula">$$ w_{\text{Huber}}=\min\!\left(1,\tfrac{k}{|u|}\right),\quad w_{\text{bisq}}=\left(1-\tfrac{u^2}{c^2}\right)^2\ (|u|&lt;c) $$<span class="f-cap">k = 1.345, c = 4.685; bisquare weight is 0 beyond c</span></div>
   </div>
 </section>
 
@@ -128,7 +141,10 @@
     <tr><td>overall F-test</td><td>all slopes = 0</td><td class="mono">summary(fit) → last line</td><td>the model explains something</td></tr>
     <tr><td>nested-model F-test</td><td>the smaller model is as good</td><td class="mono">anova(small, big)</td><td>the extra terms are needed → keep the bigger model</td></tr>
     <tr><td>Shapiro–Wilk</td><td>residuals are normal</td><td class="mono">shapiro.test(fit$resid)</td><td>residuals are <em>not</em> normal</td></tr>
+    <tr><td>Harvey–Collier</td><td>the relationship is linear</td><td class="mono">harvtest(fit, order.by = ~ x)</td><td>the relationship is <em>not</em> linear</td></tr>
+    <tr><td>Goldfeld–Quandt</td><td>constant error variance (homoscedasticity)</td><td class="mono">gqtest(fit, order.by = ~ x)</td><td>heteroscedasticity: the variance changes</td></tr>
   </table></div>
+  <p class="small muted">Robust fits (<code>summary(rlm(...))</code>) give no p-values: use |t value| &gt; 2 as a rough 5% rule.</p>
   <div class="callout trap"><div class="c-title">Classic traps</div><ul>
     <li>A large p-value does <strong>not</strong> prove H₀ — it only means "not enough evidence against it".</li>
     <li>Significant ≠ important. With huge n, tiny effects get ***.</li>
@@ -157,7 +173,8 @@
     <li>Plot Y against each X; compute the correlation matrix (Pearson and Spearman).</li>
     <li>Fit <code>lm</code>; read signs, sizes, p-values, R², adjusted R², F.</li>
     <li>Compare candidate models with <code>anova</code> (nested) or AIC/BIC.</li>
-    <li>Check residuals: vs fitted, Q-Q, histogram, <code>shapiro.test</code>, <code>plot(fit)</code>.</li>
+    <li>Check residuals: vs fitted, Q-Q, histogram, <code>shapiro.test</code>, <code>plot(fit)</code>; linearity (<code>harvtest</code>) and constant variance (<code>gqtest</code>).</li>
+    <li>Outliers? If ≤ 5% they may be removed (with a reason); otherwise fit robust estimators (<code>rlm</code>, <code>lqs</code>) and keep the one with the lowest residual standard error.</li>
     <li>Only then interpret and predict — inside the range of the data.</li>
   </ol>
 </section>

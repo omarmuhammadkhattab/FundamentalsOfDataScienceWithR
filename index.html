@@ -25,11 +25,11 @@ window.R_SNIPPETS = [
   <div>
     <div class="badge">semester 2 · interactive study notes</div>
     <h1>Fundamentals of Data Science <em>with R</em></h1>
-    <p>From typing <code>2 + 3</code> to fitting multiple regressions, testing them, checking their assumptions and rescuing them from missing data — every line of the DS550 scripts explained in plain language, with real R output and things you can play with.</p>
+    <p>From typing <code>2 + 3</code> to fitting multiple regressions, testing them, checking their assumptions and rescuing them from missing data and outliers — every line of the DS550 scripts explained in plain language, with real R output and things you can play with.</p>
     <div class="home-stats">
-      <div><div class="n">4</div><div class="l">lectures</div></div>
-      <div><div class="n">19</div><div class="l">interactive tools</div></div>
-      <div><div class="n">31</div><div class="l">quiz questions</div></div>
+      <div><div class="n">5</div><div class="l">lectures</div></div>
+      <div><div class="n">23</div><div class="l">interactive tools</div></div>
+      <div><div class="n">39</div><div class="l">quiz questions</div></div>
     </div>
   </div>
   <div class="hero-plot" aria-label="Animation: a regression line fitting itself to points">
@@ -65,6 +65,12 @@ window.R_SNIPPETS = [
         <p>md.pattern, what listwise deletion costs, why mean imputation flattens slopes, multiple imputation with mice (PMM, CART, random forest, Bayesian), and judging methods with AIC and BIC.</p>
         <div class="tags"><span>md.pattern</span><span>impute</span><span>mice</span><span>pmm</span><span>AIC · BIC</span><span>pool</span></div></div>
       <div class="side"></div></a></li>
+    <li><a class="syl" href="lecture5.html" style="--acc:#c98a12" data-id="l5">
+      <span class="n">05</span>
+      <div><h3>Outliers &amp; robust regression</h3>
+        <p>Why a few outliers wreck OLS, diagnosing a model (Shapiro, Harvey–Collier, Goldfeld–Quandt), robust M, S and MM estimators with rlm and lqs, and what happens when you delete or impute the outliers instead.</p>
+        <div class="tags"><span>harvtest</span><span>gqtest</span><span>rlm</span><span>psi.bisquare</span><span>lqs</span><span>IQR rule</span></div></div>
+      <div class="side"></div></a></li>
     <li><a class="syl" href="reference.html" style="--acc:var(--ink)" data-id="ref">
       <span class="n">✎</span>
       <div><h3>Cheat sheet</h3>
@@ -90,7 +96,7 @@ window.R_SNIPPETS = [
     <div>\( AIC=2k-2\ln L \)<small>model choice</small></div>
   </div>
 
-  <div class="callout note" style="margin-top:2.5rem"><div class="c-title">What these notes are built from</div><p>The R scripts in each lecture folder (<code>Lec 1.R</code>, <code>Lec 2 modeling.R</code>, <code>Lec 3___missing.R</code>), the two Lecture 3 handouts (Correlation Coefficient, Linear Regression and OLS), and the datasets. Every script was re-run in R 4.6, and the outputs and plots you see are from those runs. The lecture videos were not transcribed, so if the professor said something in class that isn't in the files, it won't be here.</p></div>
+  <div class="callout note" style="margin-top:2.5rem"><div class="c-title">What these notes are built from</div><p>The R scripts in each lecture folder (<code>Lec 1.R</code>, <code>Lec 2 modeling.R</code>, <code>Lec 3___missing.R</code>, <code>Robust Regression.R</code>), the two Lecture 3 handouts (Correlation Coefficient, Linear Regression and OLS), and the datasets. Every script was re-run in R 4.6, and the outputs and plots you see are from those runs. Lecture 5 also includes points the professor made in the lecture videos; for Lectures 1–4 the videos weren't used, so anything said only in class won't be there.</p></div>
 </div>
 
 <script>
