@@ -3,12 +3,12 @@
   'use strict';
 
   const PAGES = [
-    { id: 'home', href: 'index.html', short: 'Home', title: 'Course home' },
-    { id: 'l1', href: 'lecture1.html', short: 'L1', title: 'R Basics: Vectors & Matrices' },
-    { id: 'l2', href: 'lecture2.html', short: 'L2', title: 'Regression Modeling: Home Prices' },
-    { id: 'l3', href: 'lecture3.html', short: 'L3', title: 'Correlation & Simple Regression (OLS)' },
-    { id: 'l4', href: 'lecture4.html', short: 'L4', title: 'Missing Data in Regression' },
-    { id: 'l5', href: 'lecture5.html', short: 'L5', title: 'Outliers & Robust Regression' },
+    { id: 'home', href: 'index.html', short: 'Home', title: 'Home' },
+    { id: 'l1', href: 'lecture1.html', short: 'Ch1', title: 'R Basics: Vectors & Matrices' },
+    { id: 'l2', href: 'lecture2.html', short: 'Ch2', title: 'Regression Modeling: Home Prices' },
+    { id: 'l3', href: 'lecture3.html', short: 'Ch3', title: 'Correlation & Simple Regression (OLS)' },
+    { id: 'l4', href: 'lecture4.html', short: 'Ch4', title: 'Missing Data in Regression' },
+    { id: 'l5', href: 'lecture5.html', short: 'Ch5', title: 'Outliers & Robust Regression' },
     { id: 'ref', href: 'reference.html', short: 'Cheat sheet', title: 'Cheat sheet' }
   ];
   window.DS_PAGES = PAGES;
@@ -56,7 +56,7 @@
       bar.style.width = (p * 100).toFixed(1) + '%';
     }, { passive: true });
 
-    // prev / next for lecture-like pages
+    // prev / next for chapter pages
     const idx = PAGES.findIndex(p => p.id === pageId);
     const holder = $('#lec-nav');
     if (holder && idx > 0) {
@@ -68,7 +68,7 @@
     }
     const foot = document.createElement('footer');
     foot.className = 'site';
-    foot.innerHTML = `DS550 · Fundamentals of Data Science with R — interactive study notes built from the course scripts, handouts &amp; datasets.<br>Every R output on these pages was produced by actually running the code in R 4.6.`;
+    foot.innerHTML = `DS550 · Fundamentals of Data Science with R — interactive study notes for learning R and regression.<br>Every R output on these pages was produced by actually running the code in R 4.6.`;
     document.body.appendChild(foot);
 
     // visited marker
@@ -79,7 +79,7 @@
     const toc = $('.toc');
     if (!toc) return;
     const secs = $$('.content > .section[id]');
-    toc.innerHTML = '<h4>in this lecture</h4>' + secs.map((s, i) => {
+    toc.innerHTML = '<h4>in this chapter</h4>' + secs.map((s, i) => {
       const h = $('h2', s); const n = $('.sec-num', s);
       return `<a href="#${s.id}" data-id="${s.id}"><span class="n">${n ? n.textContent : i + 1}</span><span>${h ? h.textContent : s.id}</span></a>`;
     }).join('');
@@ -392,7 +392,7 @@
         <div class="r-d-head"><span class="t">Live R console</span><button class="btn ghost r-reset" type="button" title="Clear the output">clear</button><button class="r-close" type="button" aria-label="Close">✕</button></div>
         <div class="r-status">Real R (webR) runs inside this page. It downloads once (~25 MB) the first time you press Run — needs internet.</div>
         ${snips.length ? `<div class="r-snips">${snips.map((s, i) => `<button type="button" data-i="${i}">${esc(s.label)}</button>`).join('')}</div>` : ''}
-        <div class="r-out" aria-live="polite"><span class="sys">Type R code below and press Run (or Ctrl + Enter).\nThe course datasets for this page are already in R's working folder, so read.csv("…") works exactly like in RStudio.</span>\n</div>
+        <div class="r-out" aria-live="polite"><span class="sys">Type R code below and press Run (or Ctrl + Enter).\nThe example datasets for this page are already in R's working folder, so read.csv("…") works exactly like in RStudio.</span>\n</div>
         <div class="r-editor"><textarea spellcheck="false" aria-label="R code"></textarea>
           <div class="row"><button class="btn primary r-run" type="button">▶ Run</button><button class="btn ghost r-clearcode" type="button">clear code</button><span class="hint">Ctrl + Enter = run</span></div></div>`;
       document.body.append(fab, dr);

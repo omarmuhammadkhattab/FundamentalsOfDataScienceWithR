@@ -23,11 +23,11 @@ window.R_SNIPPETS = [
 
 <header class="home-hero">
   <div>
-    <div class="badge">semester 2 · interactive study notes</div>
+    <div class="badge">interactive study notes</div>
     <h1>Fundamentals of Data Science <em>with R</em></h1>
-    <p>From typing <code>2 + 3</code> to fitting multiple regressions, testing them, checking their assumptions and rescuing them from missing data and outliers — every line of the DS550 scripts explained in plain language, with real R output and things you can play with.</p>
+    <p>From typing <code>2 + 3</code> to fitting multiple regressions, testing them, checking their assumptions and rescuing them from missing data and outliers — every step explained in plain language, with real R output and things you can play with.</p>
     <div class="home-stats">
-      <div><div class="n">5</div><div class="l">lectures</div></div>
+      <div><div class="n">5</div><div class="l">chapters</div></div>
       <div><div class="n">23</div><div class="l">interactive tools</div></div>
       <div><div class="n">39</div><div class="l">quiz questions</div></div>
     </div>
@@ -39,7 +39,7 @@ window.R_SNIPPETS = [
 </header>
 
 <div class="wrap">
-  <div class="sec-label"><h2>The lectures</h2><span class="hand">start at 01, or jump in</span></div>
+  <div class="sec-label"><h2>The chapters</h2><span class="hand">start at 01, or jump in</span></div>
   <ul class="syllabus" id="syllabus">
     <li><a class="syl" href="lecture1.html" style="--acc:var(--blue)" data-id="l1">
       <span class="n">01</span>
@@ -81,12 +81,12 @@ window.R_SNIPPETS = [
   <div class="sec-label"><h2>How to use these notes</h2><span class="hand">tips</span></div>
   <div class="how">
     <div class="card blue"><span class="tag">read</span><h4>Plain words first</h4><p>Yellow sticky notes explain each idea without jargon. Then comes the precise version with formulas and R code.</p></div>
-    <div class="card teal"><span class="tag">run</span><h4>Real R in the page</h4><p>Press <span class="mono">▶ run</span> on any code box, or the blue <span class="mono">R&gt;</span> button, to run actual R in your browser (needs internet the first time; the course datasets are preloaded).</p></div>
+    <div class="card teal"><span class="tag">run</span><h4>Real R in the page</h4><p>Press <span class="mono">▶ run</span> on any code box, or the blue <span class="mono">R&gt;</span> button, to run actual R in your browser (needs internet the first time; the example datasets are preloaded).</p></div>
     <div class="card rose"><span class="tag">click</span><h4>Click the output</h4><p>Highlighted parts of R output (like <code>summary(lm)</code>) explain themselves when clicked.</p></div>
-    <div class="card violet"><span class="tag">test</span><h4>Check yourself</h4><p>Each lecture ends with a quiz with explanations. Your score is remembered here on this list.</p></div>
+    <div class="card violet"><span class="tag">test</span><h4>Check yourself</h4><p>Each chapter ends with a quiz with explanations. Your score is remembered here on this list.</p></div>
   </div>
 
-  <div class="sec-label"><h2>The course in six formulas</h2></div>
+  <div class="sec-label"><h2>Regression in six formulas</h2></div>
   <div class="formula-strip">
     <div>\( r=\dfrac{S_{xy}}{\sqrt{S_{xx}S_{yy}}} \)<small>correlation</small></div>
     <div>\( t=\dfrac{r\sqrt{n-2}}{\sqrt{1-r^2}} \)<small>is r significant?</small></div>
@@ -96,7 +96,7 @@ window.R_SNIPPETS = [
     <div>\( AIC=2k-2\ln L \)<small>model choice</small></div>
   </div>
 
-  <div class="callout note" style="margin-top:2.5rem"><div class="c-title">What these notes are built from</div><p>The R scripts in each lecture folder (<code>Lec 1.R</code>, <code>Lec 2 modeling.R</code>, <code>Lec 3___missing.R</code>, <code>Robust Regression.R</code>), the two Lecture 3 handouts (Correlation Coefficient, Linear Regression and OLS), and the datasets. Every script was re-run in R 4.6, and the outputs and plots you see are from those runs. Lecture 5 also includes points the professor made in the lecture videos; for Lectures 1–4 the videos weren't used, so anything said only in class won't be there.</p></div>
+  <div class="callout note" style="margin-top:2.5rem"><div class="c-title">About these notes</div><p>Every R example on these pages was actually run in R 4.6, and the outputs and plots you see come from those runs. The live console runs the same code in your browser, so you can change it and see what happens. No R installation needed to follow along.</p></div>
 </div>
 
 <script>

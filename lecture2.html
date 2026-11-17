@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>L2 · Regression Modeling — DS550</title>
+<title>Ch 2 · Regression Modeling — DS550</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@500;700&family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -31,11 +31,11 @@ window.R_SNIPPETS = [
   <div class="hero-inner">
     <div class="big-num">02</div>
     <div>
-      <div class="kicker">Lecture 2 · regression modeling</div>
+      <div class="kicker">Chapter 2 · regression modeling</div>
       <h1>What makes a house <em>expensive</em>? Multiple regression on real data</h1>
       <p class="lead">We load 1,728 real house sales, explore them, measure which variables move together (correlation), build a model that explains price from six house features at once (multiple regression), compare it with a model without an intercept, and finally check whether the model's assumptions hold (residual analysis).</p>
       <div class="chips"><span class="chip">read.csv</span><span class="chip">summary</span><span class="chip">cor · pearson / spearman</span><span class="chip">chart.Correlation</span><span class="chip">lm(price ~ .)</span><span class="chip">anova</span><span class="chip">residuals</span><span class="chip">shapiro.test</span></div>
-      <div class="hero-meta"><span><b>Source:</b> Lec 2/Lec 2 modeling.R (Dr. Mohamed R. Abonazel)</span><span><b>Data:</b> Home Price.csv, cor_matrix.csv</span><span><b>Videos:</b> Lec 2 parts 1–2</span></div>
+      <div class="hero-meta"><span><b>Data:</b> Home Price.csv (1,728 house sales)</span></div>
     </div>
   </div>
 </header>
@@ -46,11 +46,11 @@ window.R_SNIPPETS = [
 
 <section class="section" id="s-idea">
   <div class="sec-head"><span class="sec-num">2.1</span><h2>The idea of regression modeling</h2></div>
-  <p>A <strong>regression model</strong> is an equation that describes how one variable (the <strong>response</strong>, Y) depends on one or more other variables (the <strong>predictors</strong> or <strong>explanatory variables</strong>, X₁, X₂, …). In this lecture the response is the <em>price</em> of a house and the predictors are its age, land value, living area, and number of bedrooms, bathrooms and rooms.</p>
+  <p>A <strong>regression model</strong> is an equation that describes how one variable (the <strong>response</strong>, Y) depends on one or more other variables (the <strong>predictors</strong> or <strong>explanatory variables</strong>, X₁, X₂, …). In this chapter the response is the <em>price</em> of a house and the predictors are its age, land value, living area, and number of bedrooms, bathrooms and rooms.</p>
   <div class="formula">$$ \text{price} = \beta_0 + \beta_1\,\text{age} + \beta_2\,\text{landValue} + \dots + \beta_6\,\text{rooms} + \varepsilon $$<span class="f-cap">β's = unknown numbers the data will estimate · ε = everything the model can't explain (random error)</span></div>
   <div class="callout plain"><div class="c-title">in plain words</div>
     <p>We want a recipe: "start from a base price, add so many dollars per square foot, subtract so many per year of age, …". Regression finds the numbers in that recipe that best match the 1,728 houses we have. We use the recipe for two things: <strong>explaining</strong> (which features matter, and by how much?) and <strong>predicting</strong> (what should <em>this</em> house cost?).</p></div>
-  <p>The workflow in the script is the workflow you'll use in almost every regression project:</p>
+  <p>This chapter follows the workflow you'll use in almost every regression project:</p>
   <ol class="steps">
     <li><strong>Load and look</strong> at the data (<code>read.csv</code>, <code>head</code>, <code>summary</code>).</li>
     <li><strong>Explore relationships</strong> with plots and correlations.</li>
@@ -62,7 +62,7 @@ window.R_SNIPPETS = [
 
 <section class="section" id="s-data">
   <div class="sec-head"><span class="sec-num">2.2</span><h2>Loading and looking at the data</h2></div>
-  <div class="code" data-label="Lec 2 modeling.R — read the data"><pre class="r">
+  <div class="code" data-label="read the data"><pre class="r">
 MyData = read.csv("Home Price.csv" )
 head(MyData,4)
 names(MyData)
@@ -80,7 +80,7 @@ names(MyData)
  [5] "bedrooms"        "bathrooms"       "rooms"           "heating"
  [9] "fuel"            "waterfront"      "newConstruction" "centralAir"</pre></div></div>
   <ul>
-    <li><code>read.csv("Home Price.csv")</code> reads a comma-separated file into a <strong>data frame</strong> — R's table type, where each column is a variable and each row is one house. R looks for the file in the <strong>working directory</strong>; in RStudio use <em>Session → Set Working Directory → To Source File Location</em> so that the script and CSV are found together.</li>
+    <li><code>read.csv("Home Price.csv")</code> reads a comma-separated file into a <strong>data frame</strong> — R's table type, where each column is a variable and each row is one house. R looks for the file in the <strong>working directory</strong>; in RStudio use <em>Session → Set Working Directory → To Source File Location</em> so that your script and the CSV are found together.</li>
     <li><code>head(MyData, 4)</code> shows the first 4 rows. The output wraps because the table is wider than the console.</li>
     <li><code>names()</code> lists the column names.</li>
   </ul>
@@ -94,10 +94,10 @@ names(MyData)
     <tr><td class="mono">heating · fuel</td><td>heating system and fuel (e.g. "hot air", "gas")</td><td>text (category)</td></tr>
     <tr><td class="mono">waterfront · newConstruction · centralAir</td><td>Yes / No features</td><td>text (category)</td></tr>
   </table></div>
-  <p>The first 7 columns are numbers; the last 5 are text categories. That's why the script keeps writing <code>MyData[ ,1:7]</code> or <code>MyData[,(1:7)]</code> — "all rows, columns 1 to 7" (Lecture 1 indexing!). Correlation and the models in this lecture use only the numeric columns.</p>
+  <p>The first 7 columns are numbers; the last 5 are text categories. That's why the code keeps writing <code>MyData[ ,1:7]</code> or <code>MyData[,(1:7)]</code> — "all rows, columns 1 to 7" (Chapter 1 indexing!). Correlation and the models in this chapter use only the numeric columns.</p>
 
   <h3>summary(): five numbers + the mean, for every column</h3>
-  <div class="code" data-label="Lec 2 modeling.R"><pre class="r">
+  <div class="code" data-label="R"><pre class="r">
 summary(MyData)
 </pre><div class="out"><pre>     price             age           landValue        livingArea      bedrooms
  Min.   :  5000   Min.   :  0.00   Min.   :   200   Min.   : 616   Min.   :1.000
@@ -131,7 +131,7 @@ summary(MyData)
   </div>
 
   <h3>Getting one column: <code>$</code>, <code>attach()</code> and <code>sd()</code></h3>
-  <div class="code" data-label="Lec 2 modeling.R"><pre class="r">
+  <div class="code" data-label="R"><pre class="r">
 MyData$age          # prints all 1728 ages (long!)
 MyData$price
 attach(MyData)
@@ -152,8 +152,8 @@ class(MyData)
 
 <section class="section" id="s-cor">
   <div class="sec-head"><span class="sec-num">2.3</span><h2>Correlation matrix: which variables move together?</h2></div>
-  <p>The <strong>correlation coefficient</strong> r measures how strongly two variables follow a straight-line relationship. It goes from −1 (perfect downhill line) through 0 (no linear pattern) to +1 (perfect uphill line). Lecture 3 covers the formula in detail; here we use it to scan many pairs at once.</p>
-  <div class="code" data-label="Lec 2 modeling.R — correlation matrix"><pre class="r">
+  <p>The <strong>correlation coefficient</strong> r measures how strongly two variables follow a straight-line relationship. It goes from −1 (perfect downhill line) through 0 (no linear pattern) to +1 (perfect uphill line). Chapter 3 covers the formula in detail; here we use it to scan many pairs at once.</p>
+  <div class="code" data-label="correlation matrix"><pre class="r">
 cor_matrix = cor(MyData[,(1:7)])
 cor_matrix
 cor(MyData[,(1:7)], method=  "spearman")
@@ -166,7 +166,7 @@ livingArea  0.7123902 -0.17424195  0.4234408  1.0000000 0.6561957  0.7185637  0.
 bedrooms    0.4003487  0.02712480  0.2024492  0.6561957 1.0000000  0.4580331  0.67186325
 bathrooms   0.5972498 -0.36189725  0.2974978  0.7185637 0.4580331  1.0000000  0.51758469
 rooms       0.5311701 -0.08226402  0.2988652  0.7336658 0.6718633  0.5175847  1.00000000</pre></div></div>
-  <p>How to read it: the cell in row <em>price</em>, column <em>livingArea</em> (0.71) is the correlation between price and living area. The matrix is <strong>symmetric</strong> (cor(A,B) = cor(B,A)) and the diagonal is always 1 (every variable correlates perfectly with itself). The commented-out <code>write.csv</code> line saves the matrix to <code>cor_matrix.csv</code> — that file is in your Lec 2 folder, ready to open in Excel.</p>
+  <p>How to read it: the cell in row <em>price</em>, column <em>livingArea</em> (0.71) is the correlation between price and living area. The matrix is <strong>symmetric</strong> (cor(A,B) = cor(B,A)) and the diagonal is always 1 (every variable correlates perfectly with itself). The commented-out <code>write.csv</code> line saves the matrix to <code>cor_matrix.csv</code> — a file you can open in Excel.</p>
 
   <div class="widget" id="w-heat">
     <div class="w-head"><span class="w-badge">explore</span><span class="w-title">Clickable correlation matrix — computed live from the data</span></div>
@@ -187,7 +187,7 @@ rooms       0.5311701 -0.08226402  0.2988652  0.7336658 0.6718633  0.5175847  1.
   <p>Compare price–age: Pearson −0.19 but Spearman −0.32. Age is very skewed (a few houses are 150–225 years old). Those extreme old houses don't follow the "older = cheaper" trend, which weakens Pearson. Ranks tame the extremes, so Spearman sees the trend more clearly. <strong>When the two differ a lot, look for outliers or curvature.</strong></p>
 
   <h3>chart.Correlation(): everything in one picture</h3>
-  <div class="code" data-label="Lec 2 modeling.R — PerformanceAnalytics"><pre class="r">
+  <div class="code" data-label="PerformanceAnalytics"><pre class="r">
 #install.packages("PerformanceAnalytics")   # run once
 library("PerformanceAnalytics")
 chart.Correlation(MyData[,(1:7)])
@@ -203,7 +203,7 @@ chart.Correlation(MyData[,(1:7)], histogram=F)
 
 <section class="section" id="s-mlr">
   <div class="sec-head"><span class="sec-num">2.4</span><h2>Multiple regression with <code>lm()</code></h2></div>
-  <div class="code" data-label="Lec 2 modeling.R — fit the full model"><pre class="r">
+  <div class="code" data-label="fit the full model"><pre class="r">
 fit1 &lt;- lm( price ~ ., data = MyData[,1:7])
 summary(fit1)
 </pre></div>
@@ -257,7 +257,7 @@ Coefficients:
 
 <section class="section" id="s-noint">
   <div class="sec-head"><span class="sec-num">2.5</span><h2>A model without intercept — and the R² trap</h2></div>
-  <div class="code" data-label="Lec 2 modeling.R — all variables without intercept"><pre class="r">
+  <div class="code" data-label="all variables without intercept"><pre class="r">
 fit2 &lt;- lm(price ~ .-1, data = MyData[,1:7])
 summary(fit2)
 </pre><div class="out"><pre>Coefficients:
@@ -281,7 +281,7 @@ F-statistic:  3993 on 6 and 1722 DF,  p-value: &lt; 2.2e-16</pre></div></div>
   <div class="widget" id="w-origin">
     <div class="w-head"><span class="w-badge">see it</span><span class="w-title">Forcing the line through (0, 0)</span></div>
     <div class="w-body">
-      <p class="hint">Same idea with one predictor so you can see it: the study-hours data from Lecture 3. Toggle the intercept.</p>
+      <p class="hint">Same idea with one predictor so you can see it: the study-hours data from Chapter 3. Toggle the intercept.</p>
       <div class="controls"><span class="seg"><button class="btn on" data-i="1">with intercept</button><button class="btn" data-i="0">without intercept (−1)</button></span></div>
       <svg id="org-svg"></svg>
       <div class="readout" id="org-stats"></div>
@@ -290,7 +290,7 @@ F-statistic:  3993 on 6 and 1722 DF,  p-value: &lt; 2.2e-16</pre></div></div>
   </div>
 
   <h3>Comparing the two models properly: <code>anova()</code></h3>
-  <div class="code" data-label="Lec 2 modeling.R — compare regression models"><pre class="r">
+  <div class="code" data-label="compare regression models"><pre class="r">
 anova(fit1,fit2)  # in this case is significant
 </pre><div class="out"><pre>Analysis of Variance Table
 
@@ -306,13 +306,13 @@ Model 2: price ~ (age + landValue + livingArea + bedrooms + bathrooms + rooms) -
     <li><strong>F</strong> = (increase in RSS per removed parameter) ÷ (RSS of the bigger model per residual df):</li>
   </ul>
   <div class="formula">$$ F=\frac{(RSS_2-RSS_1)/1}{RSS_1/1721}=\frac{4.0891\times10^{10}}{6.2878\times10^{12}/1721}\approx 11.19 $$</div>
-  <p><strong>Decision:</strong> p = 0.0008 &lt; 0.05 → removing the intercept makes the model significantly worse → <strong>keep the intercept (fit1)</strong>. The script's comment "in this case is significant" means exactly this. (Notice the p-value 0.000839 is the same as the intercept's p-value in summary(fit1) — testing one coefficient with an F-test is equivalent to its t-test: F = t² = 3.345² ≈ 11.19.)</p>
+  <p><strong>Decision:</strong> p = 0.0008 &lt; 0.05 → removing the intercept makes the model significantly worse → <strong>keep the intercept (fit1)</strong>. The comment "in this case is significant" in the code means exactly this. (Notice the p-value 0.000839 is the same as the intercept's p-value in summary(fit1) — testing one coefficient with an F-test is equivalent to its t-test: F = t² = 3.345² ≈ 11.19.)</p>
 </section>
 
 <section class="section" id="s-resid">
   <div class="sec-head"><span class="sec-num">2.6</span><h2>Residual analysis: checking the assumptions</h2></div>
   <p>A <strong>residual</strong> is what the model got wrong for one house: \(e_i = y_i - \hat y_i\) (actual − predicted). The p-values and confidence intervals from <code>summary()</code> are only trustworthy if the errors behave nicely: <strong>centred at zero</strong>, <strong>constant spread</strong>, <strong>no pattern</strong>, and roughly <strong>normal</strong>. Since we can't see the true errors, we inspect the residuals.</p>
-  <div class="code" data-label="Lec 2 modeling.R — residual analysis (normality)"><pre class="r">
+  <div class="code" data-label="residual analysis (normality)"><pre class="r">
 windows()                              # open a new plot window (Windows only)
 plot(fit1$fitted , fit1$residual)      # residuals vs fitted values
 abline(0,0)                            # horizontal line at 0
@@ -341,7 +341,7 @@ W = 0.91067, p-value &lt; 2.2e-16</pre></div></div>
     <div class="card"><span class="tag">hypotheses</span><h4>H₀: the residuals are normal</h4><p>H₁: they are not normal. W close to 1 = very normal-looking.</p></div>
     <div class="card rose"><span class="tag">result</span><h4>W = 0.911, p &lt; 2.2×10⁻¹⁶</h4><p>p &lt; 0.05 → <strong>reject H₀</strong>: the residuals are not normally distributed. This confirms what the Q-Q plot shows.</p></div>
   </div>
-  <div class="callout note"><div class="c-title">Keep in perspective</div><p>With 1,728 observations, Shapiro–Wilk detects even tiny departures from normality, so always look at the plots too. Mild non-normality matters less in large samples (the coefficient estimates are still fine); the funnel shape (unequal spread) is the bigger concern for the standard errors. A common fix — beyond this lecture's script — is to model <code>log(price)</code> instead of price.</p></div>
+  <div class="callout note"><div class="c-title">Keep in perspective</div><p>With 1,728 observations, Shapiro–Wilk detects even tiny departures from normality, so always look at the plots too. Mild non-normality matters less in large samples (the coefficient estimates are still fine); the funnel shape (unequal spread) is the bigger concern for the standard errors. A common fix — beyond this chapter — is to model <code>log(price)</code> instead of price.</p></div>
 
   <div class="widget" id="w-pat">
     <div class="w-head"><span class="w-badge">train your eye</span><span class="w-title">What do residual plots look like when something is wrong?</span></div>
@@ -356,7 +356,7 @@ W = 0.91067, p-value &lt; 2.2e-16</pre></div></div>
 <section class="section" id="s-quiz">
   <div class="sec-head"><span class="sec-num">✓</span><h2>Check yourself</h2></div>
   <div class="quiz" data-id="l2">
-    <div class="quiz-top"><h3>Lecture 2 quiz</h3><span class="quiz-score"></span></div>
+    <div class="quiz-top"><h3>Chapter 2 quiz</h3><span class="quiz-score"></span></div>
     <div class="q" data-a="1"><div class="q-text">What does <code>lm(price ~ ., data = MyData[,1:7])</code> use as predictors?</div>
       <div class="q-opts"><button class="q-opt">Only the first predictor column</button><button class="q-opt">All columns 1–7 except price</button><button class="q-opt">All 12 columns</button><button class="q-opt">No predictors, only an intercept</button></div>
       <div class="q-fb">The dot means "every other column of the data you gave me". The data is <code>MyData[,1:7]</code>, so: age, landValue, livingArea, bedrooms, bathrooms, rooms.</div></div>

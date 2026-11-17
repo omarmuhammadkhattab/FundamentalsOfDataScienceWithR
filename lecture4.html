@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>L4 · Missing Data — DS550</title>
+<title>Ch 4 · Missing Data — DS550</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@500;700&family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -30,11 +30,11 @@ window.R_SNIPPETS = [
   <div class="hero-inner">
     <div class="big-num">04</div>
     <div>
-      <div class="kicker">Lecture 4 · missing data in regression</div>
+      <div class="kicker">Chapter 4 · missing data in regression</div>
       <h1>Holes in the data: <em>delete</em>, <em>fill in</em>, or <em>impute many times</em>?</h1>
-      <p class="lead">Real datasets have missing values, and <code>lm()</code> quietly throws away every row that has even one. This lecture uses a dataset of 1,000 rows with about 10% of each variable missing to compare three strategies: complete-case analysis, mean imputation, and multiple imputation with the <code>mice</code> package (PMM, CART, random forest, Bayesian regression) — and judges them with AIC and BIC.</p>
+      <p class="lead">Real datasets have missing values, and <code>lm()</code> quietly throws away every row that has even one. This chapter uses a dataset of 1,000 rows with about 10% of each variable missing to compare three strategies: complete-case analysis, mean imputation, and multiple imputation with the <code>mice</code> package (PMM, CART, random forest, Bayesian regression) — and judges them with AIC and BIC.</p>
       <div class="chips"><span class="chip">NA</span><span class="chip">md.pattern</span><span class="chip">listwise deletion</span><span class="chip">Hmisc::impute</span><span class="chip">mice</span><span class="chip">pmm · cart · rf · norm</span><span class="chip">complete()</span><span class="chip">AIC · BIC</span></div>
-      <div class="hero-meta"><span><b>Source:</b> Lec 4/Lec 3___missing.R (Dr. Mohamed R. Abonazel, 2023)</span><span><b>Data:</b> dataset with missing.csv</span><span><b>Reference:</b> Abonazel (2020), <i>Handling Outliers and Missing Data in Regression Models Using R</i></span></div>
+      <div class="hero-meta"><span><b>Data:</b> dataset with missing.csv</span></div>
     </div>
   </div>
 </header>
@@ -45,8 +45,8 @@ window.R_SNIPPETS = [
 
 <section class="section" id="s-why">
   <div class="sec-head"><span class="sec-num">4.1</span><h2>Why missing data is a problem</h2></div>
-  <p>In Lecture 1 you met <code>NA</code>. A single NA makes <code>mean()</code> return NA. In regression the default is harsher: <code>lm()</code> silently <strong>deletes every row with any NA</strong> in the variables it uses. If missing values are scattered over different columns, you can lose a big chunk of your data even when each column is only a little incomplete.</p>
-  <div class="code" data-label="Lec 3___missing.R — prepare and load"><pre class="r">
+  <p>In Chapter 1 you met <code>NA</code>. A single NA makes <code>mean()</code> return NA. In regression the default is harsher: <code>lm()</code> silently <strong>deletes every row with any NA</strong> in the variables it uses. If missing values are scattered over different columns, you can lose a big chunk of your data even when each column is only a little incomplete.</p>
+  <div class="code" data-label="prepare and load"><pre class="r">
 rm(list = ls(all = TRUE))   # Remove all objects in R console
 set.seed(09061982)          # Set the seed for reproducible results
 mydata = read.csv("dataset with missing.csv")
@@ -60,11 +60,11 @@ summary(mydata)
  Max.   :10.912   Max.   :0.9997679   Max.   : 3.61092
  <span class="hl">NAs    :106      NAs    :105         NAs    :114</span></pre></div></div>
   <ul>
-    <li><code>rm(list = ls(all = TRUE))</code> — clean workspace (Lecture 1, section 1.5).</li>
-    <li><code>set.seed(09061982)</code> — imputation methods use random numbers. Fixing the seed makes the "random" numbers the same every run, so you get the same results as the lecture. (The number is just a date; any number works.)</li>
+    <li><code>rm(list = ls(all = TRUE))</code> — clean workspace (Chapter 1, section 1.5).</li>
+    <li><code>set.seed(09061982)</code> — imputation methods use random numbers. Fixing the seed makes the "random" numbers the same every run, so you get the same results as this page. (The number is just a date; any number works.)</li>
     <li>The dataset: response <strong>y</strong> and predictors <strong>x1</strong> (between 0 and 1) and <strong>x2</strong> (centred around 0). 1,000 rows; <code>summary</code> adds an <strong>NAs</strong> line: 106 + 105 + 114 = 325 missing cells, roughly 10.5% per column.</li>
   </ul>
-  <div class="callout note"><div class="c-title">Background — why values go missing (not in the script, but useful)</div>
+  <div class="callout note"><div class="c-title">Background — why values go missing</div>
     <ul><li><strong>MCAR</strong> (missing completely at random): the hole has nothing to do with any value — e.g. a lab sample was dropped. Deleting rows wastes data but doesn't bias results.</li>
     <li><strong>MAR</strong> (missing at random): missingness depends on <em>other observed</em> variables — e.g. older people skip an online question more often. Imputation methods like <code>mice</code> are designed for this case.</li>
     <li><strong>MNAR</strong> (missing not at random): it depends on the missing value itself — e.g. high earners hide their income. Hardest case; no method fully fixes it.</li></ul></div>
@@ -72,7 +72,7 @@ summary(mydata)
 
 <section class="section" id="s-pattern">
   <div class="sec-head"><span class="sec-num">4.2</span><h2>Seeing the pattern: <code>md.pattern()</code></h2></div>
-  <div class="code" data-label="Lec 3___missing.R"><pre class="r">
+  <div class="code" data-label="R"><pre class="r">
 library("mice")            #install.packages("mice")
 md.pattern(mydata)
 </pre><div class="out" data-label="R output — click highlights"><pre>     x1   y  x2
@@ -87,7 +87,7 @@ md.pattern(mydata)
 
 <section class="section" id="s-cc">
   <div class="sec-head"><span class="sec-num">4.3</span><h2>Strategy 1 — complete-case analysis (just delete)</h2></div>
-  <div class="code" data-label="Lec 3___missing.R — OLS estimation in complete case"><pre class="r">
+  <div class="code" data-label="OLS estimation in complete case"><pre class="r">
 ols=lm(y ~.,data = mydata)
 summary(ols)
 </pre><div class="out"><pre>Coefficients:
@@ -111,7 +111,7 @@ F-statistic:  1303 on 2 and 672 DF,  p-value: &lt; 2.2e-16</pre></div></div>
 <section class="section" id="s-mean">
   <div class="sec-head"><span class="sec-num">4.4</span><h2>Strategy 2 — mean imputation</h2></div>
   <p>The simplest way to keep all rows: replace each NA by the mean of its column.</p>
-  <div class="code" data-label="Lec 3___missing.R — imputation with mean"><pre class="r">
+  <div class="code" data-label="imputation with mean"><pre class="r">
 library("Hmisc") #install.packages("Hmisc")
 new.y = impute(mydata$y, mean)  # replace with mean
 new.x1 = impute(mydata$x1, mean)
@@ -144,7 +144,7 @@ Multiple R-squared:  <span class="hl">0.5636</span>,	Adjusted R-squared:  0.5627
 
 <section class="section" id="s-compare-vis">
   <div class="sec-head"><span class="sec-num">4.5</span><h2>See it: every method on the real data</h2></div>
-  <p>The widget below uses the actual completed datasets produced by the lecture's code (same seed). <span class="mono" style="color:var(--blue)">●</span> = rows that were complete, <span class="mono" style="color:var(--red)">●</span> = rows where y or x2 was filled in.</p>
+  <p>The widget below uses the actual completed datasets produced by the code above (same seed). <span class="mono" style="color:var(--blue)">●</span> = rows that were complete, <span class="mono" style="color:var(--red)">●</span> = rows where y or x2 was filled in.</p>
   <div class="widget" id="w-imp">
     <div class="w-head"><span class="w-badge">compare</span><span class="w-title">y vs x2 after each strategy</span></div>
     <div class="w-body">
@@ -172,7 +172,7 @@ Multiple R-squared:  <span class="hl">0.5636</span>,	Adjusted R-squared:  0.5627
       <div class="explain" id="ch-exp"></div>
     </div>
   </div>
-  <div class="code" data-label="Lec 3___missing.R — PMM"><pre class="r">
+  <div class="code" data-label="PMM"><pre class="r">
 library("mice")            #install.packages("mice")
 library ("randomForest")   #install.packages("randomForest")
 # 1- perform mice imputation, based on Predictive mean matching (PMM)
@@ -201,8 +201,8 @@ PMM_data
     <li><code>anyNA(PMM_data)</code> = "is there any NA left?" → <code>FALSE</code>. ✓</li>
   </ul>
 
-  <h3>The four imputation methods in the script</h3>
-  <div class="code" data-label="Lec 3___missing.R — CART, random forest, Bayesian"><pre class="r">
+  <h3>The four imputation methods</h3>
+  <div class="code" data-label="CART, random forest, Bayesian"><pre class="r">
 #2- ... based on Classification and regression trees
 CRT_data &lt;- complete(mice(mydata, m = 10, method = "cart" ) )
 #3- ... based on Random forest
@@ -216,7 +216,7 @@ Bayes_data &lt;- complete(mice(mydata, m = 10, method = "norm" ) )
     <div class="card teal"><span class="tag">"rf"</span><h4>Random forest</h4><p>Many trees on random subsets of the data; the missing value is drawn from donors pooled across trees. Flexible but can be noisier.</p></div>
     <div class="card violet"><span class="tag">"norm"</span><h4>Bayesian linear regression</h4><p>Fits a linear regression, draws the coefficients from their uncertainty (Bayesian), predicts, and adds random normal noise. Ideal when the true relationship is linear with normal errors — as here.</p></div>
   </div>
-  <div class="callout warn"><div class="c-title">If the random-forest line gives an error</div><p>Recent versions of <strong>mice</strong> use the <strong>ranger</strong> package for <code>method = "rf"</code>. If you see <code>there is no package called 'ranger'</code>, run <code>install.packages("ranger")</code> once. (The script loads <code>randomForest</code>, which older mice versions used.)</p></div>
+  <div class="callout warn"><div class="c-title">If the random-forest line gives an error</div><p>Recent versions of <strong>mice</strong> use the <strong>ranger</strong> package for <code>method = "rf"</code>. If you see <code>there is no package called 'ranger'</code>, run <code>install.packages("ranger")</code> once. (Older mice versions used <code>randomForest</code> instead.)</p></div>
 
   <div class="widget" id="w-pmm">
     <div class="w-head"><span class="w-badge">see it</span><span class="w-title">PMM in slow motion — choosing a donor</span></div>
@@ -231,7 +231,7 @@ Bayes_data &lt;- complete(mice(mydata, m = 10, method = "norm" ) )
 
 <section class="section" id="s-aic">
   <div class="sec-head"><span class="sec-num">4.7</span><h2>Which method wins? AIC and BIC</h2></div>
-  <div class="code" data-label="Lec 3___missing.R — comparison of these methods in regression"><pre class="r">
+  <div class="code" data-label="comparison of these methods in regression"><pre class="r">
 PMM=lm(y~.,data = PMM_data)
 CRT=lm(y~.,data = CRT_data)
 RF=lm(y~.,data = RF_data)
@@ -249,7 +249,7 @@ RF    3002.257 3021.888
   <p><strong>AIC</strong> (Akaike) and <strong>BIC</strong> (Bayesian/Schwarz information criterion) score a model by how well it fits (likelihood L) with a penalty for the number of parameters k. <strong>Lower is better.</strong></p>
   <div class="formula">$$ AIC=2k-2\ln L \qquad\qquad BIC=k\ln n-2\ln L $$<span class="f-cap">for these models k = 4 (intercept, two slopes, σ) and n = 1000, so BIC = AIC + 4(ln 1000 − 2) = AIC + 19.63 for every model</span></div>
   <ul>
-    <li><code>AIC(…)</code> and <code>BIC(…)</code> with several models return a small table with columns <code>df</code> and <code>AIC</code>/<code>BIC</code>. <code>cbind</code> puts them side by side (df, AIC, df, BIC) and <code>[,-c(1,3)]</code> drops the two df columns (Lecture 1 negative indexing!).</li>
+    <li><code>AIC(…)</code> and <code>BIC(…)</code> with several models return a small table with columns <code>df</code> and <code>AIC</code>/<code>BIC</code>. <code>cbind</code> puts them side by side (df, AIC, df, BIC) and <code>[,-c(1,3)]</code> drops the two df columns (Chapter 1 negative indexing!).</li>
     <li>Ranking (best → worst): <strong>Bayes (norm)</strong> 2857.5 → PMM 2937.0 → CART 2966.0 → RF 3002.3 → <strong>mean imputation 3639.8</strong>.</li>
   </ul>
   <figure class="figure"><img src="assets/img/l4-aic-bic-barplot.png" alt="Grouped bar chart of AIC and BIC for the five methods" loading="lazy"><figcaption><span class="hand">barplot(select, beside = T, …)</span> — <code>beside = T</code> puts bars next to each other instead of stacking; <code>rainbow(5)</code> gives 5 colours; the legend lists Mean, PMM, CRT, RF, Bayes. Every MI method clearly beats mean imputation.</figcaption></figure>
@@ -264,26 +264,26 @@ RF    3002.257 3021.888
     <tr><td>random forest</td><td class="num">1.928</td><td class="num">1.927</td><td class="num">1.992</td><td class="num">0.799</td><td class="num">1.083</td><td class="num">3002.3</td></tr>
     <tr class="best"><td>Bayes (norm)</td><td class="num">1.944</td><td class="num">2.020</td><td class="num">2.051</td><td class="num">0.827</td><td class="num">1.007</td><td class="num">2857.5</td></tr>
   </table></div>
-  <p>All four multiple-imputation methods give slopes close to the complete-case values (≈ 2), while mean imputation pulls them down to ≈ 1.5–1.7. (The data look like they were simulated from y = 2 + 2·x1 + 2·x2 + error, in the style of Abonazel's simulation paper, so "close to 2" is what a good method should give.) Note that AIC tracks σ̂: a lower residual spread gives a higher likelihood, so the method with the smallest σ̂ (Bayes) gets the lowest AIC.</p>
+  <p>All four multiple-imputation methods give slopes close to the complete-case values (≈ 2), while mean imputation pulls them down to ≈ 1.5–1.7. (The data look like they were simulated from y = 2 + 2·x1 + 2·x2 + error, so "close to 2" is what a good method should give.) Note that AIC tracks σ̂: a lower residual spread gives a higher likelihood, so the method with the smallest σ̂ (Bayes) gets the lowest AIC.</p>
 
   <h3>Three things to keep in mind</h3>
   <div class="callout trap"><div class="c-title">1 · complete() only uses the first of the 10 datasets</div>
-    <p>The script makes 10 imputations but analyses only one. The proper multiple-imputation workflow fits the model on <em>all</em> m datasets and combines them with <strong>Rubin's rules</strong> (average the estimates; widen the standard errors by the between-imputation variation):</p>
-    <div class="code" data-label="the textbook MI analysis (not in the script)"><pre class="r">
+    <p>The code above makes 10 imputations but analyses only one. The proper multiple-imputation workflow fits the model on <em>all</em> m datasets and combines them with <strong>Rubin's rules</strong> (average the estimates; widen the standard errors by the between-imputation variation):</p>
+    <div class="code" data-label="the textbook MI analysis"><pre class="r">
 fit &lt;- with(PMM, lm(y ~ x1 + x2))   # fit on each of the 10 datasets
 summary(pool(fit))                  # combine with Rubin's rules
 </pre><div class="out"><pre>         term estimate  std.error statistic       df       p.value
 1 (Intercept) 1.952080 0.07367765  26.49487 156.7995  8.824729e-60
 2          x1 1.976975 0.13944514  14.17744  70.6954  2.352884e-22
 3          x2 2.028780 0.03564732  56.91254 190.2761 1.983248e-121</pre></div></div></div>
-  <div class="callout warn"><div class="c-title">2 · AIC across different datasets is a rough guide</div><p>AIC is designed to compare models fitted to the <em>same</em> data. Here each model is fitted to a <em>differently imputed</em> dataset, so lower AIC partly just means "this method imputed values that sit closer to a straight line". It's a useful heuristic used in the lecture's reference paper, but not a formal test.</p></div>
+  <div class="callout warn"><div class="c-title">2 · AIC across different datasets is a rough guide</div><p>AIC is designed to compare models fitted to the <em>same</em> data. Here each model is fitted to a <em>differently imputed</em> dataset, so lower AIC partly just means "this method imputed values that sit closer to a straight line". It's a useful heuristic, but not a formal test.</p></div>
   <div class="callout note"><div class="c-title">3 · Randomness</div><p>With another seed the numbers shift a little (especially between PMM, CART and RF). The big picture — MI ≫ mean imputation — is stable.</p></div>
 </section>
 
 <section class="section" id="s-quiz">
   <div class="sec-head"><span class="sec-num">✓</span><h2>Check yourself</h2></div>
   <div class="quiz" data-id="l4">
-    <div class="quiz-top"><h3>Lecture 4 quiz</h3><span class="quiz-score"></span></div>
+    <div class="quiz-top"><h3>Chapter 4 quiz</h3><span class="quiz-score"></span></div>
     <div class="q" data-a="1"><div class="q-text">Each of three columns has about 10% missing, in different rows. Roughly how many rows does <code>lm()</code> use out of 1,000?</div>
       <div class="q-opts"><button class="q-opt">about 900</button><button class="q-opt">about 675</button><button class="q-opt">1,000</button><button class="q-opt">about 100</button></div>
       <div class="q-fb">Any row with any NA is dropped. Here 325 rows have one NA each → 675 remain.</div></div>
@@ -302,7 +302,7 @@ summary(pool(fit))                  # combine with Rubin's rules
     <div class="q" data-a="3"><div class="q-text">Two models: AIC 2857 and AIC 2937. Which is preferred?</div>
       <div class="q-opts"><button class="q-opt">2937, higher is better</button><button class="q-opt">Neither, AIC can't compare models</button><button class="q-opt">The one with fewer rows</button><button class="q-opt">2857 — lower AIC is better</button></div>
       <div class="q-fb">AIC = 2k − 2 ln L. Lower means better fit for the complexity.</div></div>
-    <div class="q" data-a="0"><div class="q-text">Why does the script call <code>set.seed(09061982)</code>?</div>
+    <div class="q" data-a="0"><div class="q-text">Why does the code call <code>set.seed(09061982)</code>?</div>
       <div class="q-opts"><button class="q-opt">So the random imputations are reproducible</button><button class="q-opt">To remove missing values</button><button class="q-opt">To speed up mice</button><button class="q-opt">It sets the number of imputations</button></div>
       <div class="q-fb">mice draws random numbers; the same seed gives the same draws every run.</div></div>
     <div class="controls"><button class="btn ghost quiz-reset">↺ try again</button></div>
@@ -394,7 +394,7 @@ document.addEventListener('ds:ready', () => {
       { d: S2, hl: [[2, 1], [5, 1]], txt: '<b>Update x1:</b> now regress x1 on y and x2 (using the freshly imputed y) and re-impute the missing x1 values. Log: <code>x1</code>.' },
       { d: S3, hl: [[3, 2]], txt: '<b>Update x2</b> the same way. That completes iteration 1 — the log line <code>1 1 y x1 x2</code>.' },
       { d: S3, hl: [], txt: '<b>Iterate:</b> repeat the y → x1 → x2 cycle (default <code>maxit = 5</code> iterations) so the guesses settle down and stop depending on the random start. Result: <b>one</b> completed dataset.' },
-      { d: S3, hl: [], multi: true, txt: '<b>Repeat m = 10 times</b> from different random starts → 10 completed datasets whose imputed cells differ a bit. Analyse each and pool (Rubin\'s rules), or — as in the script — take one with <code>complete()</code>.' }
+      { d: S3, hl: [], multi: true, txt: '<b>Repeat m = 10 times</b> from different random starts → 10 completed datasets whose imputed cells differ a bit. Analyse each and pool (Rubin\'s rules), or — as in the code above — take one with <code>complete()</code>.' }
     ];
     let k = 0;
     function draw() {

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>L1 · R Basics — DS550</title>
+<title>Ch 1 · R Basics — DS550</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@500;700&family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -32,12 +32,11 @@ window.R_SNIPPETS = [
   <div class="hero-inner">
     <div class="big-num">01</div>
     <div>
-      <div class="kicker">Lecture 1 · R basics</div>
+      <div class="kicker">Chapter 1 · R basics</div>
       <h1>Talking to R: <em>vectors</em>, indexing &amp; <em>matrices</em></h1>
-      <p class="lead">Before we can model anything, we need to speak R fluently. This lecture walks through every line of <code>Lec 1.R</code>: using R as a calculator, storing values, handling missing data, picking elements out of vectors and matrices, and the matrix algebra that secretly powers every regression you will fit in this course.</p>
+      <p class="lead">Before we can model anything, we need to speak R fluently. This chapter covers using R as a calculator, storing values, handling missing data, picking elements out of vectors and matrices, and the matrix algebra that secretly powers every regression you will fit.</p>
       <div class="chips"><span class="chip">c()</span><span class="chip">&lt;-</span><span class="chip">NA · na.rm</span><span class="chip">v[ ]</span><span class="chip">recycling</span><span class="chip">matrix()</span><span class="chip">%*%</span><span class="chip">solve()</span></div>
-      <div class="hero-meta"><span><b>Source:</b> Lec 1/Lec 1.R (based on De Brouwer, <i>The Big R-Book</i>, 2020)</span><span><b>Videos:</b> Lec 1 parts 1–3</span></div>
-    </div>
+          </div>
   </div>
 </header>
 
@@ -50,20 +49,20 @@ window.R_SNIPPETS = [
   <div class="sec-head"><span class="sec-num">1.1</span><h2>How to work in R</h2></div>
   <p><strong>R</strong> is a free programming language made for statistics. <strong>RStudio</strong> is the program you open to write R comfortably. RStudio has four panes: the <em>script</em> (top-left, where you write and save code), the <em>console</em> (bottom-left, where R prints results), the <em>environment</em> (top-right, a list of everything you have stored) and <em>plots/help</em> (bottom-right).</p>
   <ol class="steps">
-    <li>Write code in a script file (<code>.R</code>) so you can save and re-run it — like <code>Lec 1.R</code>.</li>
+    <li>Write code in a script file (<code>.R</code>) so you can save and re-run it.</li>
     <li>Put the cursor on a line and press <strong>Ctrl + Enter</strong>. RStudio sends that line to the console and R runs it.</li>
     <li>Anything after a <code>#</code> is a <strong>comment</strong>: R ignores it. Comments are notes for humans.</li>
     <li>R answers in the console. A line like <code>[1] 5</code> means "here is the result, and the first value shown is element number 1".</li>
   </ol>
   <div class="callout plain"><div class="c-title">in plain words</div>
-    <p>Think of R as a very fast, very literal calculator that can remember things. You tell it something, it answers immediately. Every lecture page here also has a <strong>live R console</strong> — the blue <code>R&gt;</code> button bottom-right. Any code box with a <span class="mono">▶ run</span> button can be sent straight to it.</p></div>
+    <p>Think of R as a very fast, very literal calculator that can remember things. You tell it something, it answers immediately. Every chapter here also has a <strong>live R console</strong> — the blue <code>R&gt;</code> button bottom-right. Any code box with a <span class="mono">▶ run</span> button can be sent straight to it.</p></div>
 </section>
 
 <!-- 2 -->
 <section class="section" id="s-calc">
   <div class="sec-head"><span class="sec-num">1.2</span><h2>R as a calculator</h2></div>
-  <p>The first lines of the script use R exactly like a pocket calculator:</p>
-  <div class="code" data-label="Lec 1.R — arithmetic and logic"><pre class="r">
+  <p>The simplest way to start is to use R exactly like a pocket calculator:</p>
+  <div class="code" data-label="arithmetic and logic"><pre class="r">
 # Addition:
 2 + 3
 # Product
@@ -92,9 +91,9 @@ window.R_SNIPPETS = [
 <!-- 3 -->
 <section class="section" id="s-vars">
   <div class="sec-head"><span class="sec-num">1.3</span><h2>Storing values: variables and vectors</h2></div>
-  <p>To remember a value, give it a name using the <strong>assignment arrow</strong> <code>&lt;-</code> (read it as "gets"). <code>x &lt;- 5</code> means "x gets 5". You can also use <code>=</code>, and the script uses both — they do the same job here.</p>
+  <p>To remember a value, give it a name using the <strong>assignment arrow</strong> <code>&lt;-</code> (read it as "gets"). <code>x &lt;- 5</code> means "x gets 5". You can also use <code>=</code>, and the examples below use both — they do the same job here.</p>
   <p>Data almost never comes as a single number, so R's basic building block is the <strong>vector</strong>: an ordered row of values of the same type. You build one with <code>c()</code>, which stands for <em>combine</em>.</p>
-  <div class="code" data-label="Lec 1.R — your first vector"><pre class="r">
+  <div class="code" data-label="your first vector"><pre class="r">
 x &lt;- c(1,3,4,3) ;  x  ;x+6
 class(x)
 </pre><div class="out"><pre>[1] 1 3 4 3
@@ -107,7 +106,7 @@ class(x)
   </ul>
 
   <h3>A long vector, and what <code>[22]</code> means</h3>
-  <div class="code" data-label="Lec 1.R — the colon operator"><pre class="r">
+  <div class="code" data-label="the colon operator"><pre class="r">
 x=11:100
 x
 u=x[69]
@@ -129,7 +128,7 @@ x1=x
   <div class="callout key"><div class="c-title">Remember</div><p>R counts from <strong>1</strong>, not 0. The first element is <code>x[1]</code>. (Python counts from 0 — a classic source of confusion if you know both.)</p></div>
 
   <h3>Printing, mean, and a sneaky name clash</h3>
-  <div class="code" data-label="Lec 1.R"><pre class="r">
+  <div class="code" data-label="R"><pre class="r">
 (x &lt;- c(1,3,4,3))
 x.mean &lt;- mean(x)
 print(x.mean)
@@ -157,8 +156,8 @@ NULL</pre></div></div>
 <!-- 4 -->
 <section class="section" id="s-na">
   <div class="sec-head"><span class="sec-num">1.4</span><h2>Missing values: <code>NA</code></h2></div>
-  <p>Real data has holes — a person skipped a survey question, a sensor broke. R marks a missing value with <strong><code>NA</code></strong> ("Not Available"). This matters a lot: in Lecture 4 a whole lecture is about missing data in regression.</p>
-  <div class="code" data-label="Lec 1.R — NA"><pre class="r">
+  <p>Real data has holes — a person skipped a survey question, a sensor broke. R marks a missing value with <strong><code>NA</code></strong> ("Not Available"). This matters a lot: Chapter 4 is entirely about missing data in regression.</p>
+  <div class="code" data-label="NA"><pre class="r">
 v1 &lt;- c(1, 2, 3, NA)
 v1[4]
 v1[4] =10
@@ -194,7 +193,7 @@ mean(v1, na.rm =  TRUE )
 <section class="section" id="s-ws">
   <div class="sec-head"><span class="sec-num">1.5</span><h2>The workspace: <code>ls()</code> and <code>rm()</code></h2></div>
   <p>Everything you create lives in your <strong>workspace</strong> (also called the <em>global environment</em> — the top-right pane of RStudio).</p>
-  <div class="code" data-label="Lec 1.R — listing and removing objects"><pre class="r">
+  <div class="code" data-label="listing and removing objects"><pre class="r">
 ls(all.names = TRUE)   # shows all
 rm(v1)                 # removes the object v1
 ls()
@@ -206,7 +205,7 @@ character(0)</pre></div></div>
   <ul>
     <li><code>ls()</code> = <em>list</em> the objects. <code>all.names = TRUE</code> also shows hidden ones (names starting with a dot).</li>
     <li><code>rm(v1)</code> = <em>remove</em> one object.</li>
-    <li><code>rm(list = ls())</code> = remove <em>everything</em>. Afterwards <code>ls()</code> returns <code>character(0)</code>, meaning "an empty list of names". You will see this line at the top of the Lecture 4 script — it gives a clean start so old objects cannot interfere.</li>
+    <li><code>rm(list = ls())</code> = remove <em>everything</em>. Afterwards <code>ls()</code> returns <code>character(0)</code>, meaning "an empty list of names". You will see this line at the top of the Chapter 4 script — it gives a clean start so old objects cannot interfere.</li>
   </ul>
 </section>
 
@@ -219,7 +218,7 @@ character(0)</pre></div></div>
     <div class="card rose"><span class="tag">negative numbers</span><h4>"everything except"</h4><p><code>v[-3]</code>, <code>v[c(-2,-3)]</code>, <code>v[-1]</code></p></div>
     <div class="card teal"><span class="tag">TRUE / FALSE</span><h4>"keep where TRUE"</h4><p><code>v[c(T,T,F,F,T,F)]</code>, <code>v[v &gt; 12]</code></p></div>
   </div>
-  <div class="code" data-label="Lec 1.R — indexing"><pre class="r">
+  <div class="code" data-label="indexing"><pre class="r">
 v &lt;- 10:15
 v[2]
 v[c(1,5)]
@@ -256,7 +255,7 @@ v[-1]
 <section class="section" id="s-recycle">
   <div class="sec-head"><span class="sec-num">1.7</span><h2>Arithmetic between vectors — and recycling</h2></div>
   <p>When you add two vectors, R works <strong>element by element</strong>: first with first, second with second, and so on.</p>
-  <div class="code" data-label="Lec 1.R — vector arithmetic"><pre class="r">
+  <div class="code" data-label="vector arithmetic"><pre class="r">
 v1 &lt;- c(1,2,3,5,1,2)
 v2 &lt;- c(4,5,6)
 v1 + v2
@@ -266,7 +265,7 @@ v1 * v2
 [1] -3 -3 -3  1 -4 -4
 [1]  4 10 18 20  5 12</pre></div></div>
   <p>But wait — <code>v1</code> has 6 elements and <code>v2</code> only 3! R handles this by <strong>recycling</strong>: it repeats the shorter vector from the start until it is long enough. So v2 behaves like (4, 5, 6, 4, 5, 6). Since 6 is a multiple of 3, this works silently.</p>
-  <div class="code" data-label="Lec 1.R — recycling with a warning"><pre class="r">
+  <div class="code" data-label="recycling with a warning"><pre class="r">
 v1 &lt;- c(1, 2, 3, 4, 5)
 v2 &lt;- c(1, 2)
 v1 + v2
@@ -294,7 +293,7 @@ In v1 + v2 :
 <section class="section" id="s-matrix">
   <div class="sec-head"><span class="sec-num">1.8</span><h2>Matrices: data in rows and columns</h2></div>
   <p>A <strong>matrix</strong> is a vector arranged into a rectangle of rows and columns. All entries must be the same type (all numbers, for example). You make one with <code>matrix(data, nrow, ncol, byrow)</code>.</p>
-  <div class="code" data-label="Lec 1.R — byrow TRUE vs FALSE"><pre class="r">
+  <div class="code" data-label="byrow TRUE vs FALSE"><pre class="r">
 M &lt;- matrix( c(1:6), nrow = 2, ncol = 3, byrow = TRUE)
 print(M)
 M &lt;- matrix( c(1:6), nrow = 2, ncol = 3, byrow = FALSE)
@@ -324,7 +323,7 @@ print(M)
   </div>
 
   <h3>Special matrices and recycling inside <code>matrix()</code></h3>
-  <div class="code" data-label="Lec 1.R"><pre class="r">
+  <div class="code" data-label="R"><pre class="r">
 matrix (1,nr= 5, nc=1)     # a column of five 1s
 matrix (0, 2, 2)           # 2x2 zero matrix
 matrix (1:2, 4, 4)         # 1,2 recycled 8 times
@@ -355,10 +354,10 @@ In matrix(1:3, 4, 4) :
     <li><code>nr</code> and <code>nc</code> are short for <code>nrow</code> and <code>ncol</code> — R accepts unambiguous abbreviations of argument names. <code>matrix(0, 2, 2)</code> passes them by <em>position</em> instead.</li>
     <li>A single value is recycled to fill the whole matrix — handy for a <strong>vector of ones</strong> (you'll meet it again: it is the intercept column in regression) or a <strong>zero matrix</strong>.</li>
   </ul>
-  <div class="callout warn"><div class="c-title">Watch out — the script's comment vs reality</div><p>The script says <code>matrix(1:3, 4, 4)</code> "was bound to fail". In current R it does <strong>not</strong> stop with an error: it fills the matrix anyway and only prints a <strong>warning</strong>. That is arguably worse — you get a strange matrix and might not notice. Always read warnings!</p></div>
+  <div class="callout warn"><div class="c-title">Watch out — a warning, not an error</div><p>The comment in the code above says <code>matrix(1:3, 4, 4)</code> "was bound to fail". In current R it does <strong>not</strong> stop with an error: it fills the matrix anyway and only prints a <strong>warning</strong>. That is arguably worse — you get a strange matrix and might not notice. Always read warnings!</p></div>
 
   <h3>Naming rows and columns</h3>
-  <div class="code" data-label="Lec 1.R — dimnames, colnames, rownames"><pre class="r">
+  <div class="code" data-label="dimnames, colnames, rownames"><pre class="r">
 row_names = c("row1", "row2", "row3","row4")
 col_names = c("col1", "col2", "col3")
 M &lt;- matrix(c(10:21), nrow = 4, byrow = TRUE,
@@ -384,7 +383,7 @@ R4 19 20 21</pre></div></div>
 <section class="section" id="s-mindex">
   <div class="sec-head"><span class="sec-num">1.9</span><h2>Indexing matrices: <code>M[row, column]</code></h2></div>
   <p>A matrix needs <strong>two</strong> addresses separated by a comma: rows first, then columns. Leaving one side empty means "all of them".</p>
-  <div class="code" data-label="Lec 1.R — matrix indexing"><pre class="r">
+  <div class="code" data-label="matrix indexing"><pre class="r">
 M &lt;- matrix(c(10:21), nrow = 4, byrow = TRUE)
 M[1,2]          # one element
 M[2,]           # the second row
@@ -409,14 +408,14 @@ M[2:3, 3:1]     # rows 2-3, columns 3,2,1 (reversed!)
       <div class="explain" id="mi-exp"></div>
     </div>
   </div>
-  <div class="callout key"><div class="c-title">Remember</div><p>Taking a single row or column (<code>M[2,]</code>, <code>M[,2]</code>) returns a plain <strong>vector</strong>, printed with <code>[1]</code>. Taking two or more rows returns a <strong>matrix</strong>. This same <code>[rows, cols]</code> syntax works on data frames: <code>MyData[ ,1:7]</code> in Lecture 2 means "all rows, columns 1 to 7".</p></div>
+  <div class="callout key"><div class="c-title">Remember</div><p>Taking a single row or column (<code>M[2,]</code>, <code>M[,2]</code>) returns a plain <strong>vector</strong>, printed with <code>[1]</code>. Taking two or more rows returns a <strong>matrix</strong>. This same <code>[rows, cols]</code> syntax works on data frames: <code>MyData[ ,1:7]</code> in Chapter 2 means "all rows, columns 1 to 7".</p></div>
 </section>
 
 <!-- 10 -->
 <section class="section" id="s-mmath">
   <div class="sec-head"><span class="sec-num">1.10</span><h2>Matrix arithmetic: element-wise vs matrix product</h2></div>
   <p>The ordinary operators <code>+ - * /</code> work <strong>element by element</strong>, exactly like with vectors: the cell in row i, column j of the result only uses the cells in row i, column j of the two inputs.</p>
-  <div class="code" data-label="Lec 1.R — element-wise operations"><pre class="r">
+  <div class="code" data-label="element-wise operations"><pre class="r">
 M1 &lt;- matrix(c(10:21), nrow = 4, byrow = TRUE)
 M2 &lt;- matrix(c(0:11),  nrow = 4, byrow = TRUE)
 M1 + M2
@@ -440,7 +439,7 @@ M1 / M2
       <div class="explain" id="pr-exp"></div>
     </div>
   </div>
-  <div class="code" data-label="Lec 1.R — dot product, transpose, matrix product"><pre class="r">
+  <div class="code" data-label="dot product, transpose, matrix product"><pre class="r">
 a &lt;- c(1:3)
 a %*% a          # 1*1 + 2*2 + 3*3
 a %*% t(a)       # column times row = 3x3 "outer product"
@@ -489,7 +488,7 @@ A + A
 <section class="section" id="s-mfun">
   <div class="sec-head"><span class="sec-num">1.11</span><h2>Functions on matrices: sums, inverse, determinant, binding</h2></div>
   <p>Math functions such as <code>exp()</code>, <code>log()</code> and <code>sin()</code> are applied to <strong>every cell</strong>. Note <code>log(0) = -Inf</code>.</p>
-  <div class="code" data-label="Lec 1.R — functions that keep the shape"><pre class="r">
+  <div class="code" data-label="functions that keep the shape"><pre class="r">
 A
 exp(A)
 log(A)
@@ -506,7 +505,7 @@ log(A)
 [2,] 1.098612 1.386294 1.6094379
 [3,] 1.791759 1.945910 2.0794415</pre></div></div>
   <p>Other functions <strong>collapse</strong> the matrix: <code>colSums</code> gives one number per column, <code>rowSums</code> one per row, and <code>mean</code>/<code>min</code> one number for everything.</p>
-  <div class="code" data-label="Lec 1.R — functions that collapse"><pre class="r">
+  <div class="code" data-label="functions that collapse"><pre class="r">
 colSums(A)
 rowSums(A)
 mean(A)
@@ -518,7 +517,7 @@ min(A)
 
   <h3>Inverse and determinant</h3>
   <p>For numbers, the inverse of 4 is 1/4 because 4 × ¼ = 1. For a square matrix M, the <strong>inverse</strong> M⁻¹ is the matrix with M⁻¹M = <strong>I</strong> (the identity matrix: 1s on the diagonal, 0s elsewhere). In R: <code>solve(M)</code>. The <strong>determinant</strong> <code>det(M)</code> is a single number; if it is 0 the matrix has no inverse.</p>
-  <div class="code" data-label="Lec 1.R — diag, solve, det"><pre class="r">
+  <div class="code" data-label="diag, solve, det"><pre class="r">
 M &lt;- matrix(c(1,1,4,1,2,3,3,2,1), 3, 3)
 M
 diag(M)
@@ -544,7 +543,7 @@ det(M)
     <li><code>diag(M)</code> = the diagonal entries (1, 2, 1).</li>
     <li><code>round(…, 5)</code> is used because computers store decimals imperfectly: without rounding you might see tiny numbers like <code>2.2e-16</code> instead of exact 0.</li>
   </ul>
-  <div class="code" data-label="Lec 1.R — size, means, rbind and cbind"><pre class="r">
+  <div class="code" data-label="size, means, rbind and cbind"><pre class="r">
 nrow(M); ncol(M)
 colSums(M); rowSums(M)
 colMeans(M); rowMeans(M); mean(M)
@@ -585,10 +584,10 @@ rbind(M, -1)     # add a row of -1s
 <!-- 12 -->
 <section class="section" id="s-why">
   <div class="sec-head"><span class="sec-num">1.12</span><h2>Why all this matrix stuff? A sneak peek at regression</h2></div>
-  <p>It can feel like Lecture 1 is pure programming. It isn't: every function you just learned is exactly what R uses internally to fit a regression line. In Lecture 3 you will see the <strong>Ordinary Least Squares</strong> formula. In matrix form it is:</p>
+  <p>It can feel like Chapter 1 is pure programming. It isn't: every function you just learned is exactly what R uses internally to fit a regression line. In Chapter 3 you will see the <strong>Ordinary Least Squares</strong> formula. In matrix form it is:</p>
   <div class="formula">$$ \hat{\boldsymbol\beta} = (X^\top X)^{-1} X^\top y $$<span class="f-cap">X = data matrix with a column of 1s (for the intercept), y = response vector</span></div>
-  <p>Read it with Lecture 1 eyes: <code>cbind(1, x)</code> builds X (a column of ones glued to the data), <code>t()</code> transposes, <code>%*%</code> multiplies, and <code>solve()</code> inverts. Here it is on the study-hours data from Lecture 3:</p>
-  <div class="code" data-label="Lecture 1 tools → a regression"><pre class="r">
+  <p>Read it with Chapter 1 eyes: <code>cbind(1, x)</code> builds X (a column of ones glued to the data), <code>t()</code> transposes, <code>%*%</code> multiplies, and <code>solve()</code> inverts. Here it is on the study-hours data from Chapter 3:</p>
+  <div class="code" data-label="Chapter 1 tools → a regression"><pre class="r">
 hours  &lt;- c(2, 4, 6, 8, 10, 3, 5, 7, 9, 11)
 scores &lt;- c(60, 70, 80, 85, 90, 65, 75, 82, 88, 92)
 X &lt;- cbind(1, hours)                       # 10 x 2 design matrix
@@ -596,14 +595,14 @@ solve(t(X) %*% X) %*% t(X) %*% scores      # (X'X)^-1 X'y
 </pre><div class="out"><pre>           [,1]
       55.654545
 hours  3.545455</pre></div></div>
-  <p>Those two numbers — intercept 55.65 and slope 3.55 — are <em>exactly</em> what <code>lm(scores ~ hours)</code> reports in Lecture 3. You have just fitted a regression line with nothing but Lecture 1!</p>
+  <p>Those two numbers — intercept 55.65 and slope 3.55 — are <em>exactly</em> what <code>lm(scores ~ hours)</code> reports in Chapter 3. You have just fitted a regression line with nothing but Chapter 1!</p>
 </section>
 
 <!-- quiz -->
 <section class="section" id="s-quiz">
   <div class="sec-head"><span class="sec-num">✓</span><h2>Check yourself</h2></div>
   <div class="quiz" data-id="l1">
-    <div class="quiz-top"><h3>Lecture 1 quiz</h3><span class="quiz-score"></span></div>
+    <div class="quiz-top"><h3>Chapter 1 quiz</h3><span class="quiz-score"></span></div>
     <div class="q" data-a="2"><div class="q-text">What does <code>v[-3]</code> return if <code>v &lt;- 10:15</code>?</div>
       <div class="q-opts"><button class="q-opt">12</button><button class="q-opt">10 11 12</button><button class="q-opt">10 11 13 14 15</button><button class="q-opt">An error — negative positions don't exist</button></div>
       <div class="q-fb">A negative index means "everything <em>except</em> that position". Position 3 holds 12, so it is dropped.</div></div>

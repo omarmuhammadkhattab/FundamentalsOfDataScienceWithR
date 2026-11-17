@@ -1,12 +1,12 @@
 # Fundamentals of Data Science with R
 
-Interactive study notes for DS550 (Diploma in Data Science, semester 2). Every R script from the course is explained line by line in plain language, with the real R output, interactive demos and a quiz for each lecture.
+Interactive study notes for DS550 — learning R and regression from scratch. Every example is explained step by step in plain language, with the real R output, interactive demos and a quiz for each chapter.
 
 **Live site:** https://omarmuhammadkhattab.github.io/FundamentalsOfDataScienceWithR/
 
 ## Contents
 
-| Lecture | Topic |
+| Chapter | Topic |
 |---------|-------|
 | 01 | R basics: vectors, indexing, NA, matrices and matrix algebra |
 | 02 | Regression modeling: correlation matrices, multiple regression, `anova`, residual analysis |
@@ -18,7 +18,7 @@ Interactive study notes for DS550 (Diploma in Data Science, semester 2). Every R
 ## Features
 
 - **Plain words first:** every idea is explained without jargon before the formulas
-- **Live R console:** real R runs in the browser (webR), with the course datasets preloaded
+- **Live R console:** real R runs in the browser (webR), with the example datasets preloaded
 - **Interactive demos:** indexing playground, clickable correlation matrix, least-squares game, imputation comparison and more
 - **Click-to-explain output:** highlighted parts of `summary(lm)` explain themselves
-- **Quizzes** with explanations at the end of each lecture
+- **Quizzes** with explanations at the end of each chapter
