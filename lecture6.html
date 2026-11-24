@@ -55,6 +55,7 @@ window.R_SNIPPETS = [
     <div class="card amber"><span class="tag">overfitting</span><h4>Fitting the noise</h4><p>Every extra predictor makes the fit to <em>this</em> sample a little better, even a useless one. That gain doesn't carry over to new data.</p></div>
   </div>
   <p>Ten predictors is a small problem. In "big data" settings there can be hundreds or thousands of candidate X's, and machine-learning methods (lasso, random forests…) are also used for selection. For a <strong>linear</strong> model, the classical statistical tools in this chapter are usually all you need.</p>
+  <div class="callout note"><div class="c-title">Worth knowing — why learn several methods</div><p>The methods here assume a linear model and an ordinary sample size, with more observations than X variables. They don't always agree, and one may not suit your data, so fit several and compare the models they choose.</p></div>
 </section>
 
 <section class="section" id="s-data">
@@ -399,6 +400,8 @@ obj2$selection
     <figure class="figure"><img src="assets/img/l6-qsel-deviance.png" alt="qselection plot, deviance" loading="lazy"><figcaption><b>criterion = "deviance".</b> Cross-validated prediction error for q = 1…9. It drops steeply, bottoms out at q = 8 (2090.7) and rises at q = 9.</figcaption></figure>
     <figure class="figure"><img src="assets/img/l6-qsel-aicc.png" alt="qselection plot, aicc" loading="lazy"><figcaption><b>criterion = "aicc".</b> Same shape: big gains up to about q = 5, then a nearly flat floor with the minimum at q = 8.</figcaption></figure>
   </div>
+  <div class="callout key"><div class="c-title">Worth knowing — the usual order: qselection first</div><p>In practice you don't know the best size in advance, so run <code>qselection</code> first over q = 1 … (number of X's − 1), read off the best q, and only then run <code>selection</code> with that q. The script calls <code>selection(q = 8)</code> before <code>qselection</code> only because the answer was already known.</p></div>
+  <div class="callout note"><div class="c-title">Worth knowing — 8 or 6?</div><p>On the deviance plot the curve is almost flat from q = 6 onwards, and in the 8-variable model x5 (p = 0.054) and x8 (p = 0.093) aren't significant at 5%. Dropping those two gives a 6-variable model (x7, x1, x4, x3, x9, x10), which is also the one BIC prefers. Both are reasonable answers; say which criterion you used.</p></div>
   <div class="callout note"><div class="c-title">Tip — it can be slow</div><p><code>selection</code> and <code>qselection</code> start several parallel R processes by default (<code>cluster = TRUE</code>), so the first call takes a few seconds and prints "Selecting subset of size …". On a computer with only 2 cores it stops with an error asking for <code>cluster = FALSE</code>. The in-page R console switches to <code>cluster = FALSE</code> automatically, so the lecture code runs there unchanged.</p></div>
 </section>
 
@@ -429,6 +432,7 @@ obj2$selection
   <div class="callout key"><div class="c-title">The selected model</div><p>Both methods agree on the same <strong>8 predictors</strong>:</p>
   <div class="formula">$$ \hat y = 0.23 + 3.62x_1 + 1.97x_3 + 3.07x_4 + 1.48x_5 + 4.13x_7 + 1.29x_8 + 2.33x_9 + 2.12x_{10} $$<span class="f-cap">R² = 0.933 (practically equal to the full model's), σ̂ = 5.03, all 8 slopes positive; x7 has the largest effect</span></div>
   <p>Dropping x2 and x6 loses almost nothing, because their information is carried by the other eight.</p></div>
+  <div class="callout plain"><div class="c-title">Worth knowing — theory comes first</div><p>The selection methods are a guide, not the final word. Choose the candidate X's from the theory of your field and expert opinion, and don't drop a variable the field knows is important just because a criterion says so. The final model is the researcher's decision.</p></div>
   <div class="callout trap"><div class="c-title">Things to keep in mind</div><ul>
     <li><strong>The criterion decides the answer.</strong> AIC chooses 8 predictors, BIC only 6 (it charges ≈ 6 points per predictor instead of 2). Adjusted R² barely changes from 6 to 10. When the curve is this flat, models with 6 to 9 predictors are almost equally good; say which criterion you used.</li>
     <li><strong>Selection is not proof.</strong> A predictor that was dropped isn't "useless": here x2 alone has r = 0.91 with y. It's only unnecessary <em>once the others are in</em>.</li>
