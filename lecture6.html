@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ch 6 · Model Selection — DS550</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Caveat:wght@500;700&family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/data/select.js"></script>
+<script src="assets/site.js"></script>
+<script>
+const LOAD = 'MyData = read.csv("SelectData.csv")\n';
+window.R_SNIPPETS = [
+  { label: 'data + correlations', code: LOAD + 'dim(MyData)\nround(cor(MyData), 2)' },
+  { label: 'full model + VIF', code: 'library(car)\n' + LOAD + 'fit = lm(y ~ ., data = MyData)\nsummary(fit)\nvif(fit)' },
+  { label: 'backward', code: 'library(MASS)\n' + LOAD + 'fit = lm(y ~ ., data = MyData)\nstep = stepAIC(fit, direction = "backward")\nstep$anova' },
+  { label: 'forward (from empty)', code: 'library(MASS)\n' + LOAD + 'fit = lm(y ~ ., data = MyData)\nempty = lm(y ~ 1, data = MyData)\nstep = stepAIC(empty, scope = formula(fit), direction = "forward")\nstep$anova' },
+  { label: 'FWDselect', code: '# cluster = FALSE: the browser cannot start parallel R workers\nlibrary(FWDselect)\n' + LOAD + 'y = MyData[, 1]; x = MyData[, -1]\nselection(x, y, q = 8, method = "lm", criterion = "aicc", cluster = FALSE)' },
+  { label: 'qselection', code: 'library(FWDselect)\n' + LOAD + 'y = MyData[, 1]; x = MyData[, -1]\nobj2 = qselection(x, y, qvector = 1:9, method = "lm", criterion = "aicc", cluster = FALSE)\nobj2\nplot(obj2)' },
+  { label: 'AIC vs BIC', code: LOAD + 'm8 = lm(y ~ x1 + x3 + x4 + x5 + x7 + x8 + x9 + x10, data = MyData)\nm6 = lm(y ~ x7 + x1 + x4 + x3 + x9 + x10, data = MyData)\nc(AIC(m8), AIC(m6))\nc(BIC(m8), BIC(m6))' }
+];
+</script>
+</head>
+<body data-page="l6">
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="big-num">06</div>
+    <div>
+      <div class="kicker">Chapter 6 · model selection</div>
+      <h1>Ten predictors, which ones <em>earn</em> their place? <em>Model selection</em></h1>
+      <p class="lead">With many candidate predictors, putting all of them in the model isn't automatically best. This chapter takes a dataset with ten strongly correlated predictors and asks which subset to keep. It compares stepwise selection with <code>stepAIC</code> (forward, backward, both) against the <code>FWDselect</code> package, and explains the criteria that make the decision: R², adjusted R², AIC, AICc and BIC.</p>
+      <div class="chips"><span class="chip">cor · chart.Correlation</span><span class="chip">lm(y ~ .)</span><span class="chip">car::vif</span><span class="chip">stepAIC</span><span class="chip">forward · backward · both</span><span class="chip">FWDselect::selection</span><span class="chip">qselection</span><span class="chip">AIC · AICc · BIC</span></div>
+      <div class="hero-meta"><span><b>Data:</b> SelectData.csv (400 rows: y and x1…x10)</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+<aside class="toc"></aside>
+<main class="content">
+
+<section class="section" id="s-why">
+  <div class="sec-head"><span class="sec-num">6.1</span><h2>What "model selection" means here</h2></div>
+  <p>In earlier chapters the predictors were given and we only had to estimate the model. Often, though, you have <strong>many candidate X variables</strong> and every one of them seems relevant. Model selection (also called <strong>variable selection</strong>) means choosing <em>which X's go into the model</em>, not the form of the model: we stay inside linear regression throughout this chapter.</p>
+  <div class="callout plain"><div class="c-title">in plain words</div><p>You're packing for a trip with a small suitcase. Ten items all look useful, but several do the same job (three jumpers). Packing everything makes the bag heavy without making you warmer. Model selection picks the smallest set of items that still covers everything you need.</p></div>
+  <div class="grid3">
+    <div class="card blue"><span class="tag">simpler</span><h4>Parsimony</h4><p>A model with 6 predictors is easier to explain, cheaper to collect data for, and easier to use than one with 10, if it predicts almost as well.</p></div>
+    <div class="card rose"><span class="tag">redundant</span><h4>Multicollinearity</h4><p>When predictors carry the same information, their coefficients become unstable and their standard errors big. Dropping the redundant ones helps.</p></div>
+    <div class="card amber"><span class="tag">overfitting</span><h4>Fitting the noise</h4><p>Every extra predictor makes the fit to <em>this</em> sample a little better, even a useless one. That gain doesn't carry over to new data.</p></div>
+  </div>
+  <p>Ten predictors is a small problem. In "big data" settings there can be hundreds or thousands of candidate X's, and machine-learning methods (lasso, random forests…) are also used for selection. For a <strong>linear</strong> model, the classical statistical tools in this chapter are usually all you need.</p>
+</section>
+
+<section class="section" id="s-data">
+  <div class="sec-head"><span class="sec-num">6.2</span><h2>The data and its correlations</h2></div>
+  <div class="code" data-label="read the data"><pre class="r">
+MyData = read.csv("SelectData.csv" )
+head(MyData)
+summary(MyData)
+class(MyData)
+View(MyData)
+</pre><div class="out"><pre>           y         x1          x2         x3          x4          x5 ...
+1 -10.399069  0.1950507 -0.60472721 -0.2718370  0.01085532 -0.11763451
+2   8.058654  0.1416447  0.28551537  0.5070357  0.37122531  0.48890778
+3 -37.566008 -1.7451947 -2.36930465 -1.8715327 -1.91408022 -1.92803267
+...
+[1] "data.frame"</pre></div></div>
+  <p>400 rows, a response <code>y</code> (from −57 to 74, mean 0.48) and ten predictors <code>x1</code>…<code>x10</code>, each centred near 0 with a spread of about ±3. The variables have no real-world meaning: it's a simulated dataset, deliberately made <em>hard</em>, with every X strongly related to y and to each other. In most real data only some pairs are highly correlated, and the choice is easier.</p>
+  <div class="code" data-label="correlation matrix"><pre class="r">
+cor_matrix = cor(MyData[,])
+cor_matrix
+library("PerformanceAnalytics")
+chart.Correlation(MyData[,(1:7)])
+chart.Correlation(MyData[,(1:7)], histogram=F)
+</pre><div class="out" data-label="rounded to 2 decimals"><pre>       y   x1   x2   x3   x4   x5   x6   x7   x8   x9  x10
+<span class="ann" data-n="<b>Every predictor is strongly correlated with y</b> (0.91 to 0.93). Looking only at this row, you'd say all ten matter. The strongest is <b>x7 (0.934)</b>, then x1 (0.927): remember these two, every method below picks them first.">y   1.00 0.93 0.91 0.92 0.92 0.92 0.91 0.93 0.91 0.92 0.92</span>
+<span class="ann" data-n="<b>But the predictors are just as correlated with each other</b> (0.88 to 0.91). x1 and x2 share most of their information, and so on for every pair. Adding x2 to a model that already has x1 adds little new. Rule of thumb: when predictors correlate <b>above 0.8</b> with each other, expect <b>multicollinearity</b>. That's why selection is needed.">x1  0.93 1.00 0.90 0.90 0.90 0.90 0.89 0.90 0.89 0.90 0.90
+x2  0.91 0.90 1.00 0.90 0.89 0.90 0.89 0.90 0.89 0.90 0.90</span>
+...</pre></div></div>
+  <figure class="figure"><img src="assets/img/l6-chart-correlation.png" alt="chart.Correlation of y and x1 to x6" loading="lazy"><figcaption><span class="hand">chart.Correlation(MyData[, 1:7])</span> — histograms on the diagonal, scatter plots below it, correlations (with significance stars) above. Every panel is a tight straight cloud: everything moves together. <code>MyData[, (1:7)]</code> takes only the first 7 columns (y, x1…x6) so the chart stays readable; <code>histogram = F</code> removes the histograms.</figcaption></figure>
+  <div class="callout note"><div class="c-title">Tip — writing the correlation matrix to a file</div><p>The commented line <code>write.csv(cor_matrix, "cor_matrix.csv")</code> saves the matrix so you can open it in Excel and paste it into a report. <code>cor(MyData, method = "spearman")</code> gives the rank version from Chapter 3.</p></div>
+</section>
+
+<section class="section" id="s-full">
+  <div class="sec-head"><span class="sec-num">6.3</span><h2>Start with everything: the full model and VIF</h2></div>
+  <div class="code" data-label="multiple regression"><pre class="r">
+fit1 &lt;- lm(y~., data = MyData[,])
+summary(fit1)
+</pre><div class="out" data-label="R output — click highlights"><pre>Call:
+lm(formula = y ~ ., data = MyData)
+
+Coefficients:
+            Estimate Std. Error t value Pr(>|t|)
+(Intercept)   0.1873     0.2565   0.730 0.465578
+<span class="ann" data-n="<b>Strong and clear:</b> x1, x4 and x7 have p &lt; 0.001. Even with all the overlap, each of them adds information the others don't have.">x1            3.3561     0.7906   4.245 2.73e-05 ***</span>
+<span class="ann" data-n="<b>x2: p = 0.29, not significant</b>, although its correlation with y is 0.91! Not a contradiction: the t-test asks whether x2 helps <i>given all the other predictors</i>. Its information is already carried by x1, x3, … so it adds nothing on top.">x2            0.8045     0.7614   1.057 0.291370</span>
+x3            1.7682     0.7642   2.314 0.021205 *
+x4            2.9252     0.7531   3.884 0.000121 ***
+<span class="ann" data-n="<b>Weak ones:</b> x5 (p = 0.096), x6 (0.256), x8 (0.123) are not significant at 5% either. Candidates to drop… but careful: deleting several at once based on p-values is risky, because when one goes the others' p-values change. That's why we use a step-by-step procedure.">x5            1.2846     0.7704   1.667 0.096243 .
+x6            0.8483     0.7450   1.139 0.255534
+x7            3.9759     0.8110   4.902 1.39e-06 ***
+x8            1.1853     0.7661   1.547 0.122625</span>
+x9            2.0467     0.7718   2.652 0.008332 **
+x10           1.8446     0.8022   2.299 0.022012 *
+
+<span class="ann" data-n="<b>Typical error 5.03</b> on 389 df (400 − 11 coefficients). Keep this number in mind: the selected model below has 5.029, practically the same with two fewer predictors.">Residual standard error: 5.025 on 389 degrees of freedom</span>
+<span class="ann" data-n="<b>R² = 0.933, adjusted 0.9315.</b> The model explains 93% of the variation of y. Adjusted R² penalises the number of predictors (section 6.4).">Multiple R-squared:  0.9332,	Adjusted R-squared:  0.9315</span>
+F-statistic: 543.6 on 10 and 389 DF,  p-value: &lt; 2.2e-16</pre></div></div>
+
+  <h3>Measuring the overlap: the variance inflation factor</h3>
+  <div class="code" data-label="VIF"><pre class="r">
+car::vif(fit1)
+</pre><div class="out"><pre>       x1        x2        x3        x4        x5        x6        x7        x8
+ 9.007636  8.811772  8.724226  8.394400  8.932316  8.055560 <span class="hl">10.095669</span>  8.530942
+       x9       x10
+ 8.824395  9.487960</pre></div></div>
+  <p><code>car::vif</code> runs the function <code>vif</code> from the <strong>car</strong> package without loading the whole package with <code>library()</code> (the <code>::</code> means "from this package"). For each predictor, R regresses it on all the <em>other</em> predictors and gets an R²ⱼ:</p>
+  <div class="formula">$$ \text{VIF}_j = \frac{1}{1 - R_j^2} $$<span class="f-cap">VIF = 9 means R²ⱼ = 0.89: 89% of xⱼ can be predicted from the other X's, and its coefficient's variance is 9 times bigger than it would be without the overlap</span></div>
+  <div class="grid2">
+    <div class="card"><span class="tag">rule of thumb</span><h4>&lt; 5 fine · 5–10 possible problem · &gt; 10 serious</h4><p>Between 5 and 10, books disagree on how worried to be. A VIF of 1 means no overlap at all. The standard error grows with √VIF, so VIF = 9 triples it.</p></div>
+    <div class="card rose"><span class="tag">here</span><h4>All between 8.1 and 10.1</h4><p>Every predictor is heavily overlapping with the rest; x7 even passes 10. That explains the large standard errors (≈ 0.77 each) and the non-significant x2, x5, x6, x8.</p></div>
+  </div>
+</section>
+
+<section class="section" id="s-crit">
+  <div class="sec-head"><span class="sec-num">6.4</span><h2>How do we judge "better"? The selection criteria</h2></div>
+  <p>Every selection method compares models with some score. They all balance <strong>fit</strong> (small residuals) against <strong>size</strong> (number of coefficients <i>k</i>). With n observations and residual sum of squares RSS:</p>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Criterion</th><th>Formula (linear model)</th><th>Better is</th><th>Penalty for each extra coefficient</th></tr>
+    <tr><td>R²</td><td class="mono">1 − RSS / TSS</td><td>larger</td><td><strong>none</strong>: it can only go up</td></tr>
+    <tr><td>adjusted R²</td><td class="mono">1 − (1 − R²)(n − 1)/(n − k)</td><td>larger</td><td>small</td></tr>
+    <tr><td>AIC</td><td class="mono">n·log(RSS/n) + 2k  (+ constant)</td><td>smaller</td><td>2</td></tr>
+    <tr><td>AICc</td><td class="mono">AIC + 2k(k + 1)/(n − k − 1)</td><td>smaller</td><td>a bit more than 2 (for small samples)</td></tr>
+    <tr><td>BIC</td><td class="mono">n·log(RSS/n) + log(n)·k  (+ constant)</td><td>smaller</td><td>log(n) = log(400) ≈ <strong>6</strong></td></tr>
+  </table></div>
+  <div class="callout plain"><div class="c-title">in plain words</div><p>AIC and BIC are like a price tag: every new predictor must "pay" for its place by lowering the residuals enough. Under AIC it costs 2 points, under BIC about 6 (with 400 rows). So BIC is stricter and tends to choose <strong>smaller</strong> models.</p></div>
+  <div class="widget" id="w-crit">
+    <div class="w-head"><span class="w-badge">explore</span><span class="w-title">The same 11 models through five different lenses</span></div>
+    <div class="w-body">
+      <p class="hint">Models built by adding predictors in the order forward selection picks them: x7, x1, x4, x3, x9, x10, x5, x8, x6, x2. Pick a criterion; the best model by that criterion is marked.</p>
+      <div class="controls"><span class="seg"><button class="btn on" data-c="r2">R²</button><button class="btn" data-c="adj">adjusted R²</button><button class="btn" data-c="aic">AIC</button><button class="btn" data-c="bic">BIC</button><button class="btn" data-c="rss">RSS</button></span></div>
+      <div class="slider"><label for="crit-from">zoom: start at</label><input type="range" id="crit-from" min="0" max="5" step="1" value="3"><output id="crit-fromo"></output></div>
+      <svg id="crit-svg"></svg>
+      <div class="readout" id="crit-stats"></div>
+      <div class="explain" id="crit-exp"></div>
+    </div>
+  </div>
+  <div class="callout warn"><div class="c-title">Detail — two "AIC" numbers for the same model</div><p><code>stepAIC</code> prints AIC = <strong>1302.37</strong> for the full model, but <code>AIC(fit1)</code> gives <strong>2439.52</strong>. Both are right: stepAIC uses <code>extractAIC</code>, which leaves out a constant that is the same for every model fitted to these 400 rows (n·log(2π) + n + 2). Differences between models, and therefore the ranking, are identical. Just never compare a number from one with a number from the other.</p></div>
+</section>
+
+<section class="section" id="s-step">
+  <div class="sec-head"><span class="sec-num">6.5</span><h2>Method 1: stepwise regression with stepAIC</h2></div>
+  <p><code>stepAIC</code> (package <strong>MASS</strong>, which comes with R) changes the model one predictor at a time, and at each step makes the move that lowers AIC the most. It stops when no single move lowers AIC any further.</p>
+  <ol class="steps">
+    <li><strong>Forward:</strong> start small, add the predictor that lowers AIC the most, repeat.</li>
+    <li><strong>Backward:</strong> start with all predictors, remove the one whose removal lowers AIC the most, repeat.</li>
+    <li><strong>Both (stepwise):</strong> like backward, but at every step a previously removed predictor may also come back in.</li>
+  </ol>
+
+  <h3>1. Forward</h3>
+  <div class="code" data-label="forward case"><pre class="r">
+library(MASS)
+fit &lt;- lm(y~.,data=MyData)
+step &lt;- stepAIC(fit, direction="forward")
+step$anova # display results
+summary(step)
+</pre><div class="out"><pre>Start:  AIC=1302.37
+y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10
+
+<span class="ann" data-n="<b>Nothing happened.</b> Forward selection can only <i>add</i> predictors, and we started from the model that already contains all ten. Initial model = final model, and <code>summary(step)</code> is just the full model again.">Initial Model:
+y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10
+
+Final Model:
+y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10</span></pre></div></div>
+  <div class="callout trap"><div class="c-title">Worth knowing — forward needs an empty starting model</div><p>For a real forward search, start from the model with <strong>only the intercept</strong> and tell <code>stepAIC</code> how far it may go with <code>scope</code>:</p>
+  <div class="code" data-label="forward from the empty model"><pre class="r">
+empty &lt;- lm(y ~ 1, data = MyData)
+step &lt;- stepAIC(empty, scope = formula(fit), direction = "forward")
+step$anova
+</pre><div class="out"><pre>   Step Df     Deviance Resid. Df Resid. Dev      AIC
+1                             399 147070.990 2364.882
+2  + x7  1 128264.17262       398  18806.817 1544.204
+3  + x1  1   5358.94105       397  13447.876 1412.045
+4  + x4  1   1910.61030       396  11537.266 1352.749
+5  + x3  1    760.44920       395  10776.817 1327.475
+6  + x9  1    417.31226       394  10359.504 1313.678
+7 + x10  1    273.31287       393  10086.191 1304.983
+8  + x5  1    124.10017       392   9962.091 1302.031
+9  + x8  1     71.78633       391   9890.305 <span class="hl">1301.138</span></pre></div></div>
+  <p>x7 enters first (the strongest correlation with y), and the RSS ("Resid. Dev") collapses from 147,071 to 18,807. Each later step helps less. After x8, adding x6 or x2 would <em>raise</em> AIC, so it stops with <strong>8 predictors</strong>. This version isn't in the lecture script; it's here so you can see forward selection actually working.</p></div>
+
+  <h3>2. Backward</h3>
+  <div class="code" data-label="backward case"><pre class="r">
+step &lt;- stepAIC(fit, direction="backward")
+step$anova # display results
+summary(step)
+</pre><div class="out" data-label="R output — click highlights"><pre>Start:  AIC=1302.37
+y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10
+
+<span class="ann" data-n="<b>How to read this table:</b> each row is a possible move. <code>- x2</code> = the model without x2, which would have RSS 9850.2 (28.19 more than now) and AIC 1301.5. Rows are sorted by AIC, best move first. <code>&lt;none&gt;</code> = change nothing (AIC 1302.4).">       Df Sum of Sq     RSS    AIC
+- x2    1     28.19  9850.2 1301.5
+- x6    1     32.74  9854.8 1301.7
+&lt;none&gt;               9822.0 1302.4</span>
+<span class="ann" data-n="<b>Moves below &lt;none&gt; would make things worse.</b> Removing x7 costs the most: RSS +606.8 and AIC up to 1324.3. So x7 is the most valuable predictor, then x1, then x4: the same order in which forward selection added them.">- x8    1     60.44  9882.5 1302.8
+- x5    1     70.20  9892.2 1303.2
+- x10   1    133.50  9955.5 1305.8
+- x3    1    135.16  9957.2 1305.8
+- x9    1    177.57  9999.6 1307.5
+- x4    1    380.91 10202.9 1315.6
+- x1    1    455.04 10277.1 1318.5
+- x7    1    606.81 10428.8 1324.3</span>
+
+Step:  AIC=1301.51
+y ~ x1 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10
+       Df Sum of Sq     RSS    AIC
+- x6    1     40.09  9890.3 1301.1
+&lt;none&gt;               9850.2 1301.5
+...
+<span class="ann" data-n="<b>Stop:</b> <code>&lt;none&gt;</code> is now at the top, so every remaining removal would raise AIC. Removing x8 (p = 0.09 in the final model) would cost 0.9 AIC points.">Step:  AIC=1301.14
+y ~ x1 + x3 + x4 + x5 + x7 + x8 + x9 + x10
+       Df Sum of Sq     RSS    AIC
+&lt;none&gt;               9890.3 1301.1
+- x8    1     71.79  9962.1 1302.0
+...</span>
+
+<span class="ann" data-n="<b>step$anova</b> summarises the path: start (AIC 1302.367), remove x2 (1301.513), remove x6 (1301.138). The &quot;Deviance&quot; column is how much the RSS grew with each removal.">  Step Df Deviance Resid. Df Resid. Dev      AIC
+1                        389   9822.026 1302.367
+2 - x2  1 28.18623       390   9850.212 1301.513
+3 - x6  1 40.09254       391   9890.305 1301.138</span></pre></div></div>
+  <div class="widget" id="w-back">
+    <div class="w-head"><span class="w-badge">step through</span><span class="w-title">Backward elimination, one decision at a time</span></div>
+    <div class="w-body">
+      <p class="hint">Each bar is the AIC the model would have after removing that predictor. The dashed line is the current model's AIC (&lt;none&gt;). A bar below the line is an improvement; the lowest one gets removed.</p>
+      <div class="controls"><button class="btn" id="back-reset">↺ full model</button><button class="btn primary" id="back-step">remove the best one →</button></div>
+      <svg id="back-svg"></svg>
+      <div class="readout" id="back-stats"></div>
+      <div class="explain" id="back-exp"></div>
+    </div>
+  </div>
+  <div class="code" data-label="summary(step) — the selected model"><pre class="r">
+summary(step)
+</pre><div class="out"><pre>Call:
+lm(formula = y ~ x1 + x3 + x4 + x5 + x7 + x8 + x9 + x10, data = MyData)
+
+Coefficients:
+            Estimate Std. Error t value Pr(>|t|)
+(Intercept)   0.2335     0.2532   0.922  0.35700
+x1            3.6236     0.7737   4.684 3.89e-06 ***
+x3            1.9741     0.7541   2.618  0.00919 **
+x4            3.0718     0.7478   4.108 4.87e-05 ***
+x5            1.4758     0.7623   1.936  0.05358 .
+x7            4.1254     0.8052   5.123 4.73e-07 ***
+x8            1.2861     0.7635   1.685  0.09286 .
+x9            2.3314     0.7526   3.098  0.00209 **
+x10           2.1233     0.7848   2.706  0.00712 **
+
+Residual standard error: <span class="hl">5.029</span> on 391 degrees of freedom
+Multiple R-squared:  0.9328,	Adjusted R-squared:  <span class="hl">0.9314</span>
+F-statistic: 677.9 on 8 and 391 DF,  p-value: &lt; 2.2e-16</pre></div></div>
+  <ul>
+    <li>Two predictors fewer, and the fit is practically unchanged: R² 0.9332 → 0.9328, error 5.025 → 5.029.</li>
+    <li>Every remaining coefficient got a little larger and more significant: the information that x2 and x6 carried was absorbed by their correlated neighbours.</li>
+    <li>x5 and x8 stay in although p &gt; 0.05. AIC's "price" for a predictor (2 points) is lower than the 5% significance test's bar, so AIC keeps predictors with p up to about 0.16. Selecting by AIC and selecting by p-values are not the same thing.</li>
+  </ul>
+
+  <h3>3. Both directions</h3>
+  <div class="code" data-label="both (stepwise) case"><pre class="r">
+step &lt;- stepAIC(fit, direction="both")
+step &lt;- stepAIC(fit)
+step$anova # display results
+summary(step)
+</pre><div class="out"><pre>Step:  AIC=1301.14
+y ~ x1 + x3 + x4 + x5 + x7 + x8 + x9 + x10
+
+       Df Sum of Sq     RSS    AIC
+&lt;none&gt;               9890.3 1301.1
+<span class="ann" data-n="<b>The difference from backward:</b> rows with <b>+</b> appear. At each step &quot;both&quot; also checks whether putting a removed predictor back in would help. Here re-adding x6 (1301.5) or x2 (1301.7) would not, so it stops with the same 8 predictors.">+ x6    1     40.09  9850.2 1301.5
++ x2    1     35.54  9854.8 1301.7</span>
+- x8    1     71.79  9962.1 1302.0
+...
+Final Model:
+y ~ x1 + x3 + x4 + x5 + x7 + x8 + x9 + x10</pre></div></div>
+  <p><code>stepAIC(fit)</code> with no <code>direction</code> is the same as <code>direction = "both"</code>, the default. That's why the script runs both lines: they give identical results. All three searches (forward from empty, backward, both) end with the <strong>same 8 predictors</strong>. That doesn't always happen; when the routes disagree, compare the final models' AIC.</p>
+</section>
+
+<section class="section" id="s-fwd">
+  <div class="sec-head"><span class="sec-num">6.6</span><h2>Method 2: the FWDselect package</h2></div>
+  <p><strong>FWDselect</strong> (<b>F</b>or<b>W</b>ar<b>D</b> selection) works the other way round: <em>you</em> choose the number of predictors <code>q</code>, and it finds the best subset of that size. It needs <code>install.packages("FWDselect")</code> once.</p>
+  <div class="code" data-label="prepare y and x"><pre class="r">
+library(FWDselect)
+y=MyData[,1]
+x=MyData[,-1]
+</pre></div>
+  <p><code>selection()</code> doesn't take a formula: it wants the response as a vector (<code>MyData[, 1]</code> = first column) and the candidates as a table (<code>MyData[, -1]</code> = every column except the first).</p>
+  <div class="grid2">
+    <div class="card blue"><span class="tag">step 1</span><h4>Forward to size q</h4><p>Add predictors one at a time, each time the one that lowers the residual sum of squares the most, until there are q.</p></div>
+    <div class="card teal"><span class="tag">step 2</span><h4>Swap until nothing improves</h4><p>Try replacing each chosen predictor by each unused one; keep any swap that lowers the RSS. This can fix an early choice that turned out poor, which plain forward selection never does.</p></div>
+  </div>
+
+  <h3>The best single predictor (q = 1) under four criteria</h3>
+  <div class="code" data-label="selection, q = 1"><pre class="r">
+obj1 &lt;- selection(x, y, q = 1, method = "lm",
+                  criterion = "deviance")
+obj1
+obj1 &lt;- selection(x, y, q = 1, method = "lm",
+                  criterion = "aicc")
+obj1
+obj1 &lt;- selection(x, y, q = 1, method = "lm",
+                  criterion = "bic")
+obj1
+obj1 &lt;- selection(x, y, q = 1, method = "lm",
+                  criterion = "R2")
+obj1
+</pre><div class="out"><pre>****************************************************
+Best subset of size q = 1 : <span class="hl">x7</span>
+
+Information Criterion Value - deviance : 3783.245
+****************************************************
+Best subset of size q = 1 : x7
+Information Criterion Value - aicc : 2681.415
+****************************************************
+Best subset of size q = 1 : x7
+Information Criterion Value - bic : 2693.329
+****************************************************
+Best subset of size q = 1 : x7
+<span class="ann" data-n="<b>Careful, this is not the usual R².</b> The ordinary R² of y ~ x7 is 0.872. FWDselect computes a cross-validated R², but its code divides each fold's squared errors by all 400 rows instead of the 80 rows in the fold, so the number comes out too high. Use it only to compare models with each other, not as &quot;the model explains 97%&quot;.">Information Criterion Value - R2 : 0.9738061</span>
+****************************************************</pre></div></div>
+  <div class="callout key"><div class="c-title">Why the same answer four times?</div><p>For a <em>fixed</em> q, FWDselect always picks the subset by the residual sum of squares. The <code>criterion</code> only decides <strong>which number it reports</strong> for that subset. It matters when you compare <em>different</em> q's (with <code>qselection</code>, below).</p>
+  <ul>
+    <li><strong>deviance</strong>, <strong>R2</strong>: computed by 5-fold <em>cross-validation</em>: the data is cut into 5 blocks of 80 rows, the model is fitted on 4 blocks and tested on the 5th, and the result is averaged. 3783 ≈ the squared prediction error on 80 new rows.</li>
+    <li><strong>aicc</strong>, <strong>bic</strong>: computed on the whole data (aicc 2681.4 = AIC(y ~ x7) + a small-sample correction).</li>
+  </ul></div>
+  <div class="code" data-label="what is inside the result"><pre class="r">
+obj1$Best_model       #The best model
+obj1$Variable_names   #Names of the variable.
+obj1$Variable_numbers #Number of the variables.
+obj1$ic               #Information criterion used and its value.
+obj1$Prediction       #The prediction of the best model.
+</pre><div class="out"><pre>[1] "x7"
+[1] 7
+[1] "R2"
+         1          2          3          4          5          6
+ -8.171257  14.113530 -33.278539   5.598990   6.523977  -2.057503 ...</pre></div></div>
+  <p><code>$Variable_numbers</code> is the column number <em>inside x</em> (x7 is column 7 of x but column 8 of MyData). <code>$ic</code> returns only the name of the criterion; the value is in <code>obj1$Information_Criterion</code>. <code>$Prediction</code> is ŷ for all 400 rows.</p>
+
+  <h3>The best 8 predictors</h3>
+  <div class="code" data-label="selection, q = 8"><pre class="r">
+obj1 &lt;- selection(x, y, q = 8, method = "lm",
+                  criterion = "aicc")
+summary(obj1$Best_model)
+</pre><div class="out"><pre>Best subset of size q = 8 : <span class="hl">x7  x1  x4  x3  x9  x10 x5  x8</span>
+Information Criterion Value - aicc : 2438.855
+
+Call:
+glm(formula = form1, family = family)
+
+<span class="ann" data-n="<b>Same coefficients as stepAIC's model</b> (x7 = 4.1254, x1 = 3.6236, …), just listed in the order they were selected. The names look like <code>x[, 7]</code> because FWDselect builds the formula from columns of x.">Coefficients:
+            Estimate Std. Error t value Pr(>|t|)
+(Intercept)   0.2335     0.2532   0.922  0.35700
+x[, 7]        4.1254     0.8052   5.123 4.73e-07 ***
+x[, 1]        3.6236     0.7737   4.684 3.89e-06 ***
+x[, 4]        3.0718     0.7478   4.108 4.87e-05 ***
+x[, 3]        1.9741     0.7541   2.618  0.00919 **
+x[, 9]        2.3314     0.7526   3.098  0.00209 **
+x[, 10]       2.1233     0.7848   2.706  0.00712 **
+x[, 5]        1.4758     0.7623   1.936  0.05358 .
+x[, 8]        1.2861     0.7635   1.685  0.09286 .</span>
+<span class="ann" data-n="<b>Why glm?</b> FWDselect fits every model with <code>glm(family = gaussian)</code>, which for a normal response gives exactly the same estimates as <code>lm</code>. The &quot;dispersion parameter&quot; 25.29 is σ̂² (5.029² = 25.29), and &quot;Residual deviance&quot; is the RSS.">(Dispersion parameter for gaussian family taken to be 25.2949)
+    Null deviance: 147071.0  on 399  degrees of freedom
+Residual deviance:   9890.3  on 391  degrees of freedom
+AIC: 2438.3</span></pre></div></div>
+
+  <h3>Which size q? qselection</h3>
+  <div class="code" data-label="several subset sizes"><pre class="r">
+obj2 &lt;- qselection(x, y, qvector = c(1:9), method = "lm",
+                  criterion = "deviance")
+plot(obj2)
+obj2 &lt;- qselection(x, y, qvector = c(1:9), method = "lm",
+                   criterion = "aicc")
+plot(obj2)
+obj2$selection
+</pre><div class="out" data-label="R output — click highlights"><pre>  q     aicc                           selection
+1 1 2681.415                                  x7
+2 2 2549.297                              x7, x1
+3 3 2490.052                          x7, x1, x4
+4 4  2464.84                      x7, x1, x4, x3
+5 5 2451.115                  x7, x1, x4, x3, x9
+6 6 2442.502             x7, x1, x4, x3, x9, x10
+7 7 2439.643         x7, x1, x4, x3, x9, x10, x5
+<span class="ann" data-n="<b>The star marks the winner:</b> the smallest aicc is at q = 8. With the deviance (cross-validation) criterion the star lands on q = 8 as well (2090.7). Note how flat the curve is from q = 6 on: 2442.5, 2439.6, 2438.9, 2439.3.">8 8 2438.855     x7, x1, x4, x3, x9, x10, x5, x8 *</span>
+<span class="ann" data-n="<b>q stops at 9</b> because <code>selection()</code> refuses q equal to the number of candidates (10): there would be nothing to choose. Adding x6 makes aicc worse again.">9 9 2439.345 x7, x1, x4, x3, x9, x10, x5, x8, x6</span></pre></div></div>
+  <div class="fig-row">
+    <figure class="figure"><img src="assets/img/l6-qsel-deviance.png" alt="qselection plot, deviance" loading="lazy"><figcaption><b>criterion = "deviance".</b> Cross-validated prediction error for q = 1…9. It drops steeply, bottoms out at q = 8 (2090.7) and rises at q = 9.</figcaption></figure>
+    <figure class="figure"><img src="assets/img/l6-qsel-aicc.png" alt="qselection plot, aicc" loading="lazy"><figcaption><b>criterion = "aicc".</b> Same shape: big gains up to about q = 5, then a nearly flat floor with the minimum at q = 8.</figcaption></figure>
+  </div>
+  <div class="callout note"><div class="c-title">Tip — it can be slow</div><p><code>selection</code> and <code>qselection</code> start several parallel R processes by default (<code>cluster = TRUE</code>), so the first call takes a few seconds and prints "Selecting subset of size …". On a computer with only 2 cores it stops with an error asking for <code>cluster = FALSE</code>. The in-page R console switches to <code>cluster = FALSE</code> automatically, so the lecture code runs there unchanged.</p></div>
+</section>
+
+<section class="section" id="s-play">
+  <div class="sec-head"><span class="sec-num">6.7</span><h2>Try it yourself: build your own model</h2></div>
+  <div class="widget" id="w-build">
+    <div class="w-head"><span class="w-badge">play</span><span class="w-title">Choose predictors and watch the criteria react</span></div>
+    <div class="w-body">
+      <p class="hint">Click the boxes to add or remove predictors. Everything is recomputed with real least squares on the 400 rows (same numbers as R).</p>
+      <div class="cells" id="build-cells"></div>
+      <div class="controls" style="margin-top:1.4rem"><button class="btn" data-preset="all">all 10</button><button class="btn" data-preset="aic">stepAIC's 8</button><button class="btn" data-preset="bic">BIC's 6</button><button class="btn" data-preset="x7">x7 only</button><button class="btn ghost" data-preset="none">clear</button></div>
+      <div class="readout" id="build-stats"></div>
+      <div class="table-wrap"><table class="t" id="build-table"></table></div>
+      <div class="explain" id="build-exp"></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="s-compare">
+  <div class="sec-head"><span class="sec-num">6.8</span><h2>Putting the results together</h2></div>
+  <div class="table-wrap"><table class="t">
+    <tr><th>Model</th><th>Predictors</th><th class="mono">k</th><th class="mono">Adj. R²</th><th class="mono">σ̂</th><th class="mono">AIC()</th><th class="mono">BIC()</th></tr>
+    <tr><td>Full model</td><td class="mono">x1 … x10</td><td class="num">10</td><td class="num">0.93150</td><td class="num">5.025</td><td class="num">2439.5</td><td class="num">2487.4</td></tr>
+    <tr class="best"><td>stepAIC (all 3 directions), FWDselect q = 8</td><td class="mono">x1 x3 x4 x5 x7 x8 x9 x10</td><td class="num">8</td><td class="num">0.93138</td><td class="num">5.029</td><td class="num"><b>2438.3</b></td><td class="num">2478.2</td></tr>
+    <tr><td>Smallest BIC (forward path)</td><td class="mono">x1 x3 x4 x7 x9 x10</td><td class="num">6</td><td class="num">0.93037</td><td class="num">5.066</td><td class="num">2442.1</td><td class="num"><b>2474.1</b></td></tr>
+    <tr class="bad"><td>Best single predictor</td><td class="mono">x7</td><td class="num">1</td><td class="num">0.87180</td><td class="num">6.874</td><td class="num">2681.4</td><td class="num">2693.3</td></tr>
+  </table></div>
+  <div class="callout key"><div class="c-title">The selected model</div><p>Both methods agree on the same <strong>8 predictors</strong>:</p>
+  <div class="formula">$$ \hat y = 0.23 + 3.62x_1 + 1.97x_3 + 3.07x_4 + 1.48x_5 + 4.13x_7 + 1.29x_8 + 2.33x_9 + 2.12x_{10} $$<span class="f-cap">R² = 0.933 (practically equal to the full model's), σ̂ = 5.03, all 8 slopes positive; x7 has the largest effect</span></div>
+  <p>Dropping x2 and x6 loses almost nothing, because their information is carried by the other eight.</p></div>
+  <div class="callout trap"><div class="c-title">Things to keep in mind</div><ul>
+    <li><strong>The criterion decides the answer.</strong> AIC chooses 8 predictors, BIC only 6 (it charges ≈ 6 points per predictor instead of 2). Adjusted R² barely changes from 6 to 10. When the curve is this flat, models with 6 to 9 predictors are almost equally good; say which criterion you used.</li>
+    <li><strong>Selection is not proof.</strong> A predictor that was dropped isn't "useless": here x2 alone has r = 0.91 with y. It's only unnecessary <em>once the others are in</em>.</li>
+    <li><strong>p-values after selection are optimistic.</strong> The kept predictors were chosen because they looked good on this data, so their p-values look better than they would on new data.</li>
+    <li><strong>Selection doesn't replace diagnostics.</strong> Check the final model's residuals as in Chapters 3 and 5.</li>
+  </ul></div>
+</section>
+
+<section class="section" id="s-quiz">
+  <div class="sec-head"><span class="sec-num">✓</span><h2>Check yourself</h2></div>
+  <div class="quiz" data-id="l6">
+    <div class="quiz-top"><h3>Chapter 6 quiz</h3><span class="quiz-score"></span></div>
+    <div class="q" data-a="2"><div class="q-text">Why can't we choose between models by plain R²?</div>
+      <div class="q-opts"><button class="q-opt">R² can be negative</button><button class="q-opt">R² ignores the intercept</button><button class="q-opt">R² never decreases when a predictor is added, so it always prefers the biggest model</button><button class="q-opt">R² only works for one predictor</button></div>
+      <div class="q-fb">Even a column of random numbers raises R² a little. Adjusted R², AIC and BIC charge a price for each predictor.</div></div>
+    <div class="q" data-a="1"><div class="q-text">x2 has correlation 0.91 with y, yet its p-value in the full model is 0.29. Why?</div>
+      <div class="q-opts"><button class="q-opt">The correlation was computed wrongly</button><button class="q-opt">The t-test asks whether x2 helps <em>given the other predictors</em>, and they already carry its information</button><button class="q-opt">x2 has outliers</button><button class="q-opt">p-values are always large with 400 rows</button></div>
+      <div class="q-fb">That's multicollinearity: x2's VIF is 8.8, so 89% of it is predictable from the other X's.</div></div>
+    <div class="q" data-a="3"><div class="q-text"><code>stepAIC(fit, direction = "forward")</code> with fit = the full model returns the full model unchanged. Why?</div>
+      <div class="q-opts"><button class="q-opt">All predictors are significant</button><button class="q-opt">AIC can't be computed for 10 predictors</button><button class="q-opt">Forward needs the BIC</button><button class="q-opt">Forward can only add predictors, and the full model already has them all; start from <code>lm(y ~ 1)</code> with a <code>scope</code></button></div>
+      <div class="q-fb">From the intercept-only model, forward adds x7, x1, x4, x3, x9, x10, x5, x8 and stops.</div></div>
+    <div class="q" data-a="0"><div class="q-text">In a backward step the table shows <code>- x2</code> with AIC 1301.5 and <code>&lt;none&gt;</code> with AIC 1302.4. What happens?</div>
+      <div class="q-opts"><button class="q-opt">x2 is removed, because that lowers AIC</button><button class="q-opt">Nothing; the procedure stops</button><button class="q-opt">x2 is added</button><button class="q-opt">All variables below &lt;none&gt; are removed</button></div>
+      <div class="q-fb">The best move is the row with the lowest AIC. If that row is &lt;none&gt;, the procedure stops.</div></div>
+    <div class="q" data-a="2"><div class="q-text">Here AIC selects 8 predictors and BIC selects 6. Why does BIC choose fewer?</div>
+      <div class="q-opts"><button class="q-opt">BIC ignores the residuals</button><button class="q-opt">BIC uses cross-validation</button><button class="q-opt">BIC's penalty per coefficient is log(n) ≈ 6 for n = 400, versus 2 for AIC</button><button class="q-opt">BIC only works with stepAIC</button></div>
+      <div class="q-fb">For n ≥ 8, log(n) &gt; 2, so BIC is always the stricter of the two.</div></div>
+    <div class="q" data-a="1"><div class="q-text">With FWDselect, <code>selection(x, y, q = 1, ...)</code> picks x7 with all four criteria. Why?</div>
+      <div class="q-opts"><button class="q-opt">Because x7 has the largest VIF</button><button class="q-opt">For a fixed q, the subset is chosen by the residual sum of squares; the criterion only sets the number that is reported</button><button class="q-opt">Coincidence; usually they differ</button><button class="q-opt">Because q = 1 is the default</button></div>
+      <div class="q-fb">The criterion matters when comparing different sizes q with <code>qselection</code>.</div></div>
+    <div class="q" data-a="3"><div class="q-text">What does a VIF of 10 for a predictor mean?</div>
+      <div class="q-opts"><button class="q-opt">Its coefficient is 10 times bigger</button><button class="q-opt">It explains 10% of y</button><button class="q-opt">It has 10 outliers</button><button class="q-opt">90% of its variation is explained by the other predictors, inflating its coefficient's variance 10 times</button></div>
+      <div class="q-fb">VIF = 1/(1 − R²ⱼ); VIF = 10 ⇔ R²ⱼ = 0.90.</div></div>
+    <div class="q" data-a="0"><div class="q-text">stepAIC says AIC = 1301.14 for the final model, but <code>AIC(model)</code> says 2438.29. Which is right?</div>
+      <div class="q-opts"><button class="q-opt">Both: they differ by a constant that is the same for every model on these data, so rankings agree</button><button class="q-opt">Only stepAIC's</button><button class="q-opt">Only AIC()'s</button><button class="q-opt">Neither; one of them uses BIC</button></div>
+      <div class="q-fb">stepAIC uses extractAIC, which drops the constant n·log(2π) + n + 2. Just don't mix the two scales.</div></div>
+    <div class="controls"><button class="btn ghost quiz-reset">↺ try again</button></div>
+  </div>
+</section>
+
+<section class="section" id="s-sum">
+  <div class="sec-head"><span class="sec-num">★</span><h2>Summary</h2></div>
+  <div class="takeaways"><ul>
+    <li>Model selection = choosing which X's go into the model. Goals: simpler models, less multicollinearity, less overfitting.</li>
+    <li>Start by looking: <code>cor</code>, <code>chart.Correlation</code>, then the full model <code>lm(y ~ ., data)</code> and <code>car::vif</code> (VIF &gt; 10 serious, &gt; 5 watch). Here all X's correlate 0.88–0.93 with each other and VIFs are 8–10.</li>
+    <li>Criteria: R² always rises (useless for selection); adjusted R² (larger = better); AIC (penalty 2 per coefficient), AICc, BIC (penalty log n). Smaller AIC/BIC = better.</li>
+    <li><code>stepAIC</code> (MASS): forward, backward or both (the default). Forward must start from <code>lm(y ~ 1)</code> with <code>scope</code>. Read each step's table: the top row is the move made; &lt;none&gt; on top = stop.</li>
+    <li><code>FWDselect::selection(x, y, q, criterion)</code> finds the best subset of size q (forward + swaps); <code>qselection</code> compares q = 1…9 and stars the best. deviance/R2 are cross-validated; their R2 is not the usual R².</li>
+    <li>Here every method selects the same 8 predictors (x1 x3 x4 x5 x7 x8 x9 x10): AIC 2438.3, adjusted R² 0.9314, the same fit as the full model with two fewer predictors. BIC would keep 6.</li>
+  </ul></div>
+</section>
+
+<div id="lec-nav"></div>
+</main>
+</div>
+
+<script>
+document.addEventListener('ds:ready', () => {
+  const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+  const P = window.DS_PLOT, S = window.S;
+  const lines = window.DS_SELECT.trim().split('\n');
+  const rows = lines.slice(1).map(l => l.split(',').map(Number));
+  const n = rows.length, Y = rows.map(r => r[0]), NAMES = lines[0].split(',').slice(1);
+  const XC = j => rows.map(r => r[j + 1]);   // predictor j (0-based)
+
+  /* ---------- least squares with standard errors ---------- */
+  function invert(A) {
+    const m = A.length, M = A.map((r, i) => r.concat(A.map((_, j) => (i === j ? 1 : 0))));
+    for (let c = 0; c < m; c++) {
+      let p = c; for (let r = c + 1; r < m; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+      [M[c], M[p]] = [M[p], M[c]];
+      const d = M[c][c]; for (let k = 0; k < 2 * m; k++) M[c][k] /= d;
+      for (let r = 0; r < m; r++) if (r !== c) { const f = M[r][c]; if (f) for (let k = 0; k < 2 * m; k++) M[r][k] -= f * M[c][k]; }
+    }
+    return M.map(r => r.slice(m));
+  }
+  function fitLM(sel) {
+    const cols = [rows.map(() => 1)].concat(sel.map(XC)), k = cols.length;
+    const XtX = cols.map(a => cols.map(b => { let s = 0; for (let i = 0; i < n; i++) s += a[i] * b[i]; return s; }));
+    const Xty = cols.map(a => { let s = 0; for (let i = 0; i < n; i++) s += a[i] * Y[i]; return s; });
+    const inv = invert(XtX), b = inv.map(r => r.reduce((s, v, j) => s + v * Xty[j], 0));
+    let rss = 0; for (let i = 0; i < n; i++) { let f = 0; for (let j = 0; j < k; j++) f += b[j] * cols[j][i]; rss += (Y[i] - f) ** 2; }
+    const my = S.mean(Y), tss = Y.reduce((s, v) => s + (v - my) ** 2, 0), df = n - k, s2 = rss / df;
+    const r2 = 1 - rss / tss, adj = 1 - (1 - r2) * (n - 1) / df;
+    const ll = n * Math.log(rss / n), cst = n * Math.log(2 * Math.PI) + n;
+    return { b, se: inv.map((r, j) => Math.sqrt(s2 * r[j])), rss, r2, adj, sigma: Math.sqrt(s2), df, k,
+      aicStep: ll + 2 * k, AIC: cst + ll + 2 * (k + 1), BIC: cst + ll + Math.log(n) * (k + 1) };
+  }
+  function vifs(sel) {   // diag of the inverse correlation matrix of the chosen predictors
+    if (sel.length < 2) return sel.map(() => 1);
+    const C = sel.map(a => sel.map(b => S.cor(XC(a), XC(b))));
+    const inv = invert(C); return sel.map((_, i) => inv[i][i]);
+  }
+
+  /* ---------- criteria along the forward path ---------- */
+  (function () {
+    const order = [6, 0, 3, 2, 8, 9, 4, 7, 5, 1];   // x7, x1, x4, x3, x9, x10, x5, x8, x6, x2
+    const M = []; for (let q = 0; q <= 10; q++) M.push(fitLM(order.slice(0, q)));
+    const C = {
+      r2: { lab: 'R²', get: m => m.r2, best: 'max', f: v => v.toFixed(4) },
+      adj: { lab: 'adjusted R²', get: m => m.adj, best: 'max', f: v => v.toFixed(5) },
+      aic: { lab: 'AIC()', get: m => m.AIC, best: 'min', f: v => v.toFixed(1) },
+      bic: { lab: 'BIC()', get: m => m.BIC, best: 'min', f: v => v.toFixed(1) },
+      rss: { lab: 'RSS', get: m => m.rss, best: 'min', f: v => v.toFixed(0) }
+    };
+    let c = 'r2';
+    function draw() {
+      const from = +$('#crit-from').value; $('#crit-fromo').textContent = 'q = ' + from;
+      const cr = C[c], vals = M.map(cr.get), shown = vals.slice(from);
+      let lo = Math.min(...shown), hi = Math.max(...shown); const pad = (hi - lo) * 0.12 || 1; lo -= pad; hi += pad;
+      const p = P($('#crit-svg'), { w: 620, h: 300, x: [from - 0.5, 10.5], y: [lo, hi], xlab: 'number of predictors q', ylab: cr.lab, xt: 11 - from, yfmt: v => (Math.abs(hi) < 2 ? v.toFixed(3) : Math.round(v)) });
+      const bestQ = vals.indexOf(cr.best === 'max' ? Math.max(...vals) : Math.min(...vals));
+      let d = ''; for (let q = from; q <= 10; q++) d += (q === from ? 'M' : 'L') + p.X(q) + ',' + p.Y(vals[q]) + ' ';
+      p.el('path', { d, class: 'ln-blue', style: 'fill:none;stroke-width:2.2' });
+      for (let q = from; q <= 10; q++) p.el('circle', { cx: p.X(q), cy: p.Y(vals[q]), r: q === bestQ ? 8 : 4.5, style: q === bestQ ? 'fill:var(--red);stroke:var(--ink);stroke-width:1.5' : 'fill:var(--blue)' });
+      const added = ['—', 'x7', 'x1', 'x4', 'x3', 'x9', 'x10', 'x5', 'x8', 'x6', 'x2'];
+      $('#crit-stats').innerHTML = `<div class="stat"><div class="k">best q by ${cr.lab}</div><div class="v">${bestQ}</div></div><div class="stat"><div class="k">value there</div><div class="v">${cr.f(vals[bestQ])}</div></div><div class="stat"><div class="k">last predictor added</div><div class="v mono">${added[bestQ]}</div></div><div class="stat"><div class="k">value with all 10</div><div class="v">${cr.f(vals[10])}</div></div>`;
+      const txt = {
+        r2: 'R² goes up at <b>every</b> step, even when x6 and x2 are added. If we picked the largest R² we would always choose the full model. That is why R² cannot be used for selection.',
+        adj: 'Adjusted R² charges a small price per predictor, but here it still creeps up all the way to 10 (0.93138 at q = 8 vs 0.93150 at q = 10). Its penalty is mild; it rarely removes much.',
+        aic: 'AIC falls quickly, flattens out, and is lowest at <b>q = 8</b> (x8 is the last one worth adding). Adding x6 and x2 makes it rise again. This is the model stepAIC chose.',
+        bic: 'BIC charges log(400) ≈ 6 per predictor, so it turns upward earlier: lowest at <b>q = 6</b> (x7, x1, x4, x3, x9, x10). Stricter criterion → smaller model.',
+        rss: 'The residual sum of squares can only go down when a predictor is added. Look at the size of the steps: 147,071 → 18,807 for x7 alone, then smaller and smaller gains. The criteria above decide when a gain is too small to be worth a predictor.'
+      };
+      $('#crit-exp').innerHTML = txt[c] + (from > 0 ? '' : ' (q = 0 is the intercept-only model, so it squashes the rest of the curve: move the slider to zoom in.)');
+    }
+    $$('#w-crit [data-c]').forEach(b => b.addEventListener('click', () => { c = b.dataset.c; $$('#w-crit [data-c]').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
+    $('#crit-from').addEventListener('input', draw); draw();
+  })();
+
+  /* ---------- backward elimination step-through ---------- */
+  (function () {
+    let cur;
+    function reset() { cur = NAMES.map((_, j) => j); draw(); }
+    function moves() {
+      const base = fitLM(cur);
+      return { base, opts: cur.map(j => ({ j, m: fitLM(cur.filter(v => v !== j)) })).sort((a, b) => a.m.aicStep - b.m.aicStep) };
+    }
+    function draw() {
+      const { base, opts } = moves();
+      const all = opts.map(o => o.m.aicStep).concat(base.aicStep);
+      const span = Math.max(...all) - Math.min(...all), lo = Math.min(...all) - Math.max(2, span * 0.3), hi = Math.max(...all) + 2;
+      const p = P($('#back-svg'), { w: 620, h: 300, x: [-0.5, opts.length - 0.5], y: [lo, hi], xlab: 'predictor to remove', ylab: 'AIC after removing it', xt: 1, xfmt: () => '', m: { b: 44 } });
+      opts.forEach((o, i) => {
+        const better = o.m.aicStep < base.aicStep, v = o.m.aicStep;
+        p.el('rect', { x: p.X(i) - 20, y: p.Y(v), width: 40, height: p.Y(lo) - p.Y(v), style: `fill:${i === 0 && better ? 'var(--red)' : better ? '#d99a12' : 'var(--blue)'};fill-opacity:${i === 0 && better ? .85 : .45}` });
+        const t = p.el('text', { x: p.X(i), y: p.Y(lo) + 16, 'text-anchor': 'middle', class: 'lbl-txt' }, p.top); t.textContent = '− ' + NAMES[o.j];
+        const tv = p.el('text', { x: p.X(i), y: p.Y(v) - 5, 'text-anchor': 'middle', class: 'lbl-txt', style: 'font-size:10px' }); tv.textContent = v.toFixed(1);
+      });
+      p.el('line', { x1: p.X(-0.5), x2: p.X(opts.length - 0.5), y1: p.Y(base.aicStep), y2: p.Y(base.aicStep), class: 'ln-dash' });
+      const best = opts[0], improves = best.m.aicStep < base.aicStep;
+      $('#back-step').disabled = !improves;
+      $('#back-stats').innerHTML = `<div class="stat"><div class="k">current model</div><div class="v mono">${cur.map(j => NAMES[j]).join(' ')}</div></div><div class="stat"><div class="k">AIC (&lt;none&gt;)</div><div class="v">${base.aicStep.toFixed(2)}</div></div><div class="stat"><div class="k">adjusted R²</div><div class="v">${base.adj.toFixed(5)}</div></div>`;
+      $('#back-exp').innerHTML = improves
+        ? `Removing <b>${NAMES[best.j]}</b> gives the lowest AIC (${best.m.aicStep.toFixed(2)} &lt; ${base.aicStep.toFixed(2)}), so it goes next (red bar). ${opts.filter(o => o.m.aicStep < base.aicStep).length > 1 ? 'Other bars are below the line too, but only one predictor is removed per step: after each removal all the numbers change.' : ''} The tallest bar, −${NAMES[opts[opts.length - 1].j]}, is the predictor the model can least afford to lose.`
+        : `<b>Stop.</b> Every bar is above the dashed line: removing anything would raise AIC. The final model has ${cur.length} predictors, the same as <code>stepAIC(fit, direction = "backward")</code>.`;
+    }
+    $('#back-reset').addEventListener('click', reset);
+    $('#back-step').addEventListener('click', () => { const { base, opts } = moves(); if (opts[0].m.aicStep < base.aicStep) { cur = cur.filter(v => v !== opts[0].j); draw(); } });
+    reset();
+  })();
+
+  /* ---------- build your own model ---------- */
+  (function () {
+    const on = new Set([0, 2, 3, 4, 6, 7, 8, 9]);
+    const PRE = { all: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], aic: [0, 2, 3, 4, 6, 7, 8, 9], bic: [0, 2, 3, 6, 8, 9], x7: [6], none: [] };
+    const ref = { aic: fitLM(PRE.aic).AIC, bic: fitLM(PRE.bic).BIC };
+    const box = $('#build-cells');
+    NAMES.forEach((nm, j) => { const c = document.createElement('button'); c.className = 'cell'; c.type = 'button'; c.textContent = nm; c.setAttribute('aria-pressed', 'false'); c.addEventListener('click', () => { on.has(j) ? on.delete(j) : on.add(j); draw(); }); box.appendChild(c); });
+    function draw() {
+      const sel = [...on].sort((a, b) => a - b);
+      Array.from(box.children).forEach((c, j) => { c.classList.toggle('sel', on.has(j)); c.setAttribute('aria-pressed', on.has(j)); });
+      const m = fitLM(sel), v = vifs(sel);
+      $('#build-stats').innerHTML = `<div class="stat"><div class="k">predictors</div><div class="v">${sel.length}</div></div><div class="stat"><div class="k">R²</div><div class="v">${m.r2.toFixed(4)}</div></div><div class="stat"><div class="k">adjusted R²</div><div class="v">${m.adj.toFixed(5)}</div></div><div class="stat"><div class="k">residual SE</div><div class="v">${m.sigma.toFixed(3)}</div></div><div class="stat"><div class="k">AIC()</div><div class="v ${m.AIC <= ref.aic + 1e-6 ? 'good' : ''}">${m.AIC.toFixed(1)}</div></div><div class="stat"><div class="k">BIC()</div><div class="v ${m.BIC <= ref.bic + 1e-6 ? 'good' : ''}">${m.BIC.toFixed(1)}</div></div>`;
+      let h = '<tr><th></th><th class="mono">Estimate</th><th class="mono">Std. Error</th><th class="mono">t value</th><th class="mono">Pr(&gt;|t|)</th><th class="mono">VIF</th></tr>';
+      ['(Intercept)'].concat(sel.map(j => NAMES[j])).forEach((nm, i) => {
+        const t = m.b[i] / m.se[i], pv = S.p2(t, m.df);
+        h += `<tr class="${i && pv > 0.05 ? 'bad' : ''}"><td class="mono">${nm}</td><td class="num">${m.b[i].toFixed(4)}</td><td class="num">${m.se[i].toFixed(4)}</td><td class="num">${t.toFixed(3)}</td><td class="num">${S.pfmt(pv)}</td><td class="num">${i ? v[i - 1].toFixed(2) : ''}</td></tr>`;
+      });
+      $('#build-table').innerHTML = h;
+      const ns = sel.filter((j, i) => S.p2(m.b[i + 1] / m.se[i + 1], m.df) > 0.05).length;
+      $('#build-exp').innerHTML = (sel.length === 0 ? 'Intercept only: the prediction is just the mean of y (0.48) for everyone, and R² = 0. ' : '') +
+        (m.AIC <= ref.aic + 1e-6 ? '<b>This is the lowest AIC possible</b> (2438.3): stepAIC\'s model. ' : m.BIC <= ref.bic + 1e-6 ? '<b>This is the lowest BIC</b> on the forward path (2474.1). ' : '') +
+        (ns ? `${ns} predictor${ns > 1 ? 's are' : ' is'} not significant at 5% (pink rows). ` : '') +
+        (sel.length > 1 ? `VIF shrinks as you remove predictors: with fewer overlapping X's, each coefficient is estimated more precisely. ` : '') +
+        'Try removing x7 from the 8-variable model: AIC jumps by about 24 points, while removing x8 costs less than 1.';
+    }
+    $$('#w-build [data-preset]').forEach(b => b.addEventListener('click', () => { on.clear(); PRE[b.dataset.preset].forEach(j => on.add(j)); draw(); }));
+    draw();
+  })();
+});
+</script>
+</body>
+</html>

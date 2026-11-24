@@ -13,6 +13,7 @@ Interactive study notes for DS550 — learning R and regression from scratch. Ev
 | 03 | Correlation coefficient, its t-test, simple linear regression and OLS, prediction intervals |
 | 04 | Missing data in regression: `md.pattern`, mean imputation, multiple imputation with `mice`, AIC/BIC |
 | 05 | Outliers and robust regression: diagnostic tests (`harvtest`, `gqtest`), M, S and MM estimators with `rlm` and `lqs` |
+| 06 | Model selection: VIF, AIC/BIC, stepwise regression with `stepAIC`, best subsets with `FWDselect` |
 | ✎ | Cheat sheet: R functions, formulas, hypothesis tests and interpretation templates |
 
 ## Features

@@ -9,6 +9,7 @@
     { id: 'l3', href: 'lecture3.html', short: 'Ch3', title: 'Correlation & Simple Regression (OLS)' },
     { id: 'l4', href: 'lecture4.html', short: 'Ch4', title: 'Missing Data in Regression' },
     { id: 'l5', href: 'lecture5.html', short: 'Ch5', title: 'Outliers & Robust Regression' },
+    { id: 'l6', href: 'lecture6.html', short: 'Ch6', title: 'Model Selection' },
     { id: 'ref', href: 'reference.html', short: 'Cheat sheet', title: 'Cheat sheet' }
   ];
   window.DS_PAGES = PAGES;
@@ -427,6 +428,7 @@
         if (window.DS_HOME) { await webR.FS.writeFile('/home/web_user/Home Price.csv', enc(window.DS_HOME)); files.push('Home Price.csv'); }
         if (window.DS_MISSING) { await webR.FS.writeFile('/home/web_user/dataset with missing.csv', enc(window.DS_MISSING.csv)); files.push('dataset with missing.csv'); }
         if (window.DS_OUTLIERS) { await webR.FS.writeFile('/home/web_user/dataset_outliers.csv', enc(window.DS_OUTLIERS)); files.push('dataset_outliers.csv'); }
+        if (window.DS_SELECT) { await webR.FS.writeFile('/home/web_user/SelectData.csv', enc(window.DS_SELECT)); files.push('SelectData.csv'); }
         this.webR = webR;
         this.shelter = await new webR.Shelter();
         this.dot.className = 'dot ready';
@@ -461,6 +463,11 @@
           this.print(`(downloading the ${p} package into the browser — first time only…)\n`, 'sys');
           await this.webR.evalRVoid(`webr::install("${p}", quiet = TRUE)`);
         }
+      }
+      // FWDselect starts parallel workers by default, which the browser can't do: make cluster = FALSE the default here
+      if (pkgs.includes('FWDselect') && !this.fwdPatched) {
+        await this.webR.evalRVoid(`local({ ns <- asNamespace("FWDselect"); for (f in c("selection", "qselection")) { fn <- get(f, ns); formals(fn)$cluster <- FALSE; unlockBinding(f, ns); assign(f, fn, envir = ns); lockBinding(f, ns) } })`);
+        this.fwdPatched = true;
       }
       try {
         const res = await this.shelter.captureR(src, {

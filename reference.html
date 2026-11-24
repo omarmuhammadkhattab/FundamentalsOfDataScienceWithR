@@ -105,6 +105,15 @@
     <tr><td class="mono">rlm(y ~ x, method = "MM")</td><td>MASS: MM-estimator (S start + bisquare M-step)</td><td>5</td></tr>
     <tr><td class="mono">fit$w</td><td>weights each observation got in an rlm fit (0 = ignored)</td><td>5</td></tr>
     <tr><td class="mono">par(mfcol = c(2, 2)) · par(mfcol = c(1, 1))</td><td>2×2 plot grid (filled by column) · reset to one plot</td><td>5</td></tr>
+    <tr class="grp"><td colspan="3">model selection</td></tr>
+    <tr><td class="mono">lm(y ~ ., data = d)</td><td>regress y on every other column of d</td><td>6</td></tr>
+    <tr><td class="mono">car::vif(fit)</td><td>variance inflation factors (&gt; 10 serious multicollinearity, &gt; 5 watch)</td><td>6</td></tr>
+    <tr><td class="mono">stepAIC(fit, direction = "backward")</td><td>MASS: remove predictors one at a time while AIC falls ("both" is the default)</td><td>6</td></tr>
+    <tr><td class="mono">stepAIC(lm(y ~ 1, d), scope = formula(fit), direction = "forward")</td><td>forward selection, starting from the intercept-only model</td><td>6</td></tr>
+    <tr><td class="mono">step$anova</td><td>the path stepAIC took, with the AIC after each move</td><td>6</td></tr>
+    <tr><td class="mono">AIC(fit) · BIC(fit)</td><td>information criteria (smaller = better; BIC penalises size more)</td><td>4, 6</td></tr>
+    <tr><td class="mono">selection(x, y, q = 3, method = "lm", criterion = "aicc")</td><td>FWDselect: best subset of q predictors (x = table of predictors, y = vector)</td><td>6</td></tr>
+    <tr><td class="mono">qselection(x, y, qvector = 1:9, ...) · plot()</td><td>FWDselect: best subset for each size q; * marks the best q</td><td>6</td></tr>
     <tr><td class="mono">install.packages("pkg") · library(pkg)</td><td>install once · load each session</td><td>2</td></tr>
   </table></div>
 </section>
